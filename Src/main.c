@@ -21,6 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "rotary.h"
 
 /* USER CODE END Includes */
 
@@ -109,7 +110,16 @@ int main(void)
   MX_TIM1_Init();
   MX_USART3_UART_Init();
   /* USER CODE BEGIN 2 */
+	rotary_init();
 
+	// Example: add two encoders
+	rotary_add(GPIOB, GPIO_PIN_0,  // CLK
+						 GPIOB, GPIO_PIN_1,  // DT
+						 GPIOB, GPIO_PIN_2); // SW
+
+	rotary_add(GPIOC, GPIO_PIN_3,  // CLK
+						 GPIOC, GPIO_PIN_4,  // DT
+						 GPIOC, GPIO_PIN_5); // SW
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -117,7 +127,7 @@ int main(void)
   while (1)
   {
     /* USER CODE END WHILE */
-
+		rotary_task();
     /* USER CODE BEGIN 3 */
   }
   /* USER CODE END 3 */

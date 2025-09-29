@@ -393,26 +393,6 @@
           </Files>
         </Group>
         <Group>
-          <GroupName>Application/User</GroupName>
-          <Files>
-            <File>
-              <FileName>main.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>Src/main.c</FilePath>
-            </File>
-            <File>
-              <FileName>stm32h7xx_it.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>Src/stm32h7xx_it.c</FilePath>
-            </File>
-            <File>
-              <FileName>stm32h7xx_hal_msp.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>Src/stm32h7xx_hal_msp.c</FilePath>
-            </File>
-          </Files>
-        </Group>
-        <Group>
           <GroupName>Drivers/STM32H7xx_HAL_Driver</GroupName>
           <Files>
             <File>
@@ -534,6 +514,56 @@
               <FileName>system_stm32h7xx.c</FileName>
               <FileType>1</FileType>
               <FilePath>Src/system_stm32h7xx.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Src</GroupName>
+          <Files>
+            <File>
+              <FileName>stm32h7xx_hal_msp.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>Src/stm32h7xx_hal_msp.c</FilePath>
+            </File>
+            <File>
+              <FileName>stm32h7xx_it.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>Src/stm32h7xx_it.c</FilePath>
+            </File>
+            <File>
+              <FileName>main.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>Src/main.c</FilePath>
+            </File>
+            <File>
+              <FileName>rotary.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>.\Src\rotary.c</FilePath>
+            </File>
+          </Files>
+        </Group>
+        <Group>
+          <GroupName>Inc</GroupName>
+          <Files>
+            <File>
+              <FileName>main.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Inc\main.h</FilePath>
+            </File>
+            <File>
+              <FileName>rotary.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Inc\rotary.h</FilePath>
+            </File>
+            <File>
+              <FileName>stm32h7xx_hal_conf.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Inc\stm32h7xx_hal_conf.h</FilePath>
+            </File>
+            <File>
+              <FileName>stm32h7xx_it.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>.\Inc\stm32h7xx_it.h</FilePath>
             </File>
           </Files>
         </Group>
