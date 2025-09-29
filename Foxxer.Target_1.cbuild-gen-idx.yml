@@ -1,0 +1,13 @@
+build-gen-idx:
+  generated-by: uVision version 5.43.1.0
+  generators:
+    - board: 
+      device: STM32H743VITx
+      id: CubeMX
+      output: C:/git/Foxxer/
+      project-type: single-core
+      cbuild-gens:
+        - cbuild-gen: C:/git/Foxxer/Foxxer.Target_1.cbuild-gen.yml
+          configuration: .Target_1
+          name: C:/git/Foxxer/Foxxer.cgen.yml
+          project: Foxxer
