@@ -1,5 +1,0 @@
-load STM32H743VITx
-project name Foxxer
-project toolchain "MDK-ARM V5"
-project path "C:\git\Foxxer"
-SetCopyLibrary "copy only"

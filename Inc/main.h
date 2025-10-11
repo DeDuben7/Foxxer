@@ -49,6 +49,8 @@ extern "C" {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
@@ -57,6 +59,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define LED_Pin GPIO_PIN_3
+#define LED_GPIO_Port GPIOE
 #define ATT_05_Pin GPIO_PIN_0
 #define ATT_05_GPIO_Port GPIOA
 #define ATT_1_Pin GPIO_PIN_1
@@ -77,6 +81,10 @@ void Error_Handler(void);
 #define SA818_PD_GPIO_Port GPIOB
 #define SA818_HL_Pin GPIO_PIN_2
 #define SA818_HL_GPIO_Port GPIOB
+#define LCD_CS_Pin GPIO_PIN_11
+#define LCD_CS_GPIO_Port GPIOE
+#define LCD_WR_RS_Pin GPIO_PIN_13
+#define LCD_WR_RS_GPIO_Port GPIOE
 #define SA818_UART_TX_Pin GPIO_PIN_10
 #define SA818_UART_TX_GPIO_Port GPIOB
 #define SA818_UART_RX_Pin GPIO_PIN_11
@@ -93,10 +101,6 @@ void Error_Handler(void);
 #define ROT2DAT_GPIO_Port GPIOD
 #define ROT2SW_Pin GPIO_PIN_6
 #define ROT2SW_GPIO_Port GPIOD
-#define DISPLAY_SCL_Pin GPIO_PIN_6
-#define DISPLAY_SCL_GPIO_Port GPIOB
-#define DISPLAY_SDA_Pin GPIO_PIN_7
-#define DISPLAY_SDA_GPIO_Port GPIOB
 
 /* USER CODE BEGIN Private defines */
 
