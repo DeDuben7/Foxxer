@@ -82,8 +82,39 @@ void sa818_uart_transmit(const char* cmd) {
   HAL_UART_Transmit(&sa818_uart_handle, (uint8_t*)cmd, strlen(cmd), SA818_UART_TIMEOUT);
 }
 
-void sa818_uart_receive(const char* rxbuf) {
-  HAL_UART_Receive(&sa818_uart_handle, (uint8_t*)rxbuf, sizeof(rxbuf), SA818_UART_TIMEOUT);
+size_t sa818_uart_receive(char *rxbuf, size_t size, uint32_t timeout)
+{
+    uint16_t rx_len = 0;
+    HAL_StatusTypeDef status;
+
+    memset(rxbuf, 0, size);
+
+    status = HAL_UARTEx_ReceiveToIdle(&sa818_uart_handle,
+                                      (uint8_t *)rxbuf,
+                                      size,
+                                      &rx_len,
+                                      timeout);
+
+    if (status == HAL_OK || status == HAL_TIMEOUT) {
+        return rx_len;  // number of bytes actually received
+    } else {
+        return 0;
+    }
+}
+
+void sa818_uart_flush(void)
+{
+    __HAL_UART_CLEAR_OREFLAG(&sa818_uart_handle);  // clear overrun
+    __HAL_UART_CLEAR_NEFLAG(&sa818_uart_handle);   // clear noise flag
+    __HAL_UART_CLEAR_FEFLAG(&sa818_uart_handle);   // clear framing error
+    __HAL_UART_CLEAR_PEFLAG(&sa818_uart_handle);   // clear parity error
+
+    // Read out any pending bytes in RX FIFO
+    uint8_t dummy;
+    while (__HAL_UART_GET_FLAG(&sa818_uart_handle, UART_FLAG_RXNE) != RESET) {
+        dummy = (uint8_t)(sa818_uart_handle.Instance->RDR);
+        (void)dummy;
+    }
 }
 
 /**
@@ -98,8 +129,7 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   if(huart->Instance==USART3)
   {
-  /** Initializes the peripherals clock
-  */
+    // Initializes the peripherals clock
     PeriphClkInitStruct.PeriphClockSelection = RCC_PERIPHCLK_USART3;
     PeriphClkInitStruct.Usart234578ClockSelection = RCC_USART234578CLKSOURCE_D2PCLK1;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
@@ -107,24 +137,19 @@ void HAL_UART_MspInit(UART_HandleTypeDef* huart)
       //Error_Handler();
     }
 
-    /* Peripheral clock enable */
+    // Peripheral clock enable
     __HAL_RCC_USART3_CLK_ENABLE();
 
     __HAL_RCC_GPIOB_CLK_ENABLE();
-    /**USART3 GPIO Configuration
-    PB10     ------> USART3_TX
-    PB11     ------> USART3_RX
-    */
+
+    //PB10     ------> USART3_TX
+    //PB11     ------> USART3_RX
     GPIO_InitStruct.Pin = SA818_UART_TX_Pin|SA818_UART_RX_Pin;
     GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
     GPIO_InitStruct.Pull = GPIO_NOPULL;
     GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
     GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
     HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
-
-    /* USART3 interrupt Init */
-    HAL_NVIC_SetPriority(USART3_IRQn, 0, 0);
-    HAL_NVIC_EnableIRQ(USART3_IRQn);
   }
 }
 
@@ -138,17 +163,11 @@ void HAL_UART_MspDeInit(UART_HandleTypeDef* huart)
 {
   if(huart->Instance==USART3)
   {
-    /* Peripheral clock disable */
+    // Peripheral clock disable
     __HAL_RCC_USART3_CLK_DISABLE();
 
-    /**USART3 GPIO Configuration
-    PB10     ------> USART3_TX
-    PB11     ------> USART3_RX
-    */
+    //PB10     ------> USART3_TX
+    //PB11     ------> USART3_RX
     HAL_GPIO_DeInit(GPIOB, SA818_UART_TX_Pin|SA818_UART_RX_Pin);
-
-    /* USART3 interrupt DeInit */
-    HAL_NVIC_DisableIRQ(USART3_IRQn);
   }
-
 }

@@ -39,7 +39,8 @@ extern "C" {
 extern void sa818_uart_init(void);
 
 extern void sa818_uart_transmit(const char* cmd);
-extern void sa818_uart_receive(const char* rxbuf);
+extern size_t sa818_uart_receive(const char* rxbuf, size_t size, uint32_t timeout);
+extern void sa818_uart_flush(void);
 
 #ifdef __cplusplus
 }
