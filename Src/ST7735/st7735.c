@@ -19,7 +19,7 @@
   */
 
 /* Includes ------------------------------------------------------------------*/
-#include "st7735.h"
+#include <st7735.h>
 
 /** @addtogroup BSP
   * @{
@@ -66,9 +66,9 @@ ST7735_LCD_Drv_t   ST7735_LCD_Driver =
 static uint32_t OrientationTab[4][2] =
 {
   {0x40U , 0xC0U}, /* Portrait orientation choice of LCD screen               */
-  {0x80U , 0x00U}, /* Portrait rotated 180° orientation choice of LCD screen  */
+  {0x80U , 0x00U}, /* Portrait rotated 180ï¿½ orientation choice of LCD screen  */
   {0x20U , 0x60U}, /* Landscape orientation choice of LCD screen              */
-  {0xE0U , 0xA0U}  /* Landscape rotated 180° orientation choice of LCD screen */
+  {0xE0U , 0xA0U}  /* Landscape rotated 180ï¿½ orientation choice of LCD screen */
 };
 
 ST7735_Ctx_t ST7735Ctx;

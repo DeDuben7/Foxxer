@@ -6,7 +6,7 @@ extern "C"
 {
 #endif
 
-#include "main.h"
+#include "stm32h7xx_hal.h"
 
 #ifndef KEY_Pin
 #define KEY_Pin GPIO_PIN_13

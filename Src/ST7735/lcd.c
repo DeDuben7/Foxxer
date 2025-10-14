@@ -1,30 +1,24 @@
-#include "lcd.h"
-#include "font.h"
+#include "stm32h7xx_hal.h"
+
+#include "lcd_brightness_timer.h"
 #include "spi.h"
-#include "tim.h"
+#include "gpio.h"
+
+#include "font.h"
+#include "lcd.h"
 
 #include "board.h"
 
-//SPI��ʾ���ӿ�
 //LCD_RST
 #define LCD_RST_SET     
 #define LCD_RST_RESET  
-//LCD_RS//dc  
+//LCD_RS
 #define LCD_RS_SET      HAL_GPIO_WritePin(LCD_WR_RS_GPIO_Port,LCD_WR_RS_Pin,GPIO_PIN_SET)//PC4 
 #define LCD_RS_RESET    HAL_GPIO_WritePin(LCD_WR_RS_GPIO_Port,LCD_WR_RS_Pin,GPIO_PIN_RESET)
 //LCD_CS  
 #define LCD_CS_SET      HAL_GPIO_WritePin(LCD_CS_GPIO_Port,LCD_CS_Pin,GPIO_PIN_SET)
 #define LCD_CS_RESET    HAL_GPIO_WritePin(LCD_CS_GPIO_Port,LCD_CS_Pin,GPIO_PIN_RESET)
-//SPI Driver
-#define SPI spi4
-#define SPI_Drv (&hspi4)
-#define delay_ms HAL_Delay
-#define get_tick HAL_GetTick
-//LCD_Brightness timer
-#define LCD_Brightness_timer &htim1
-#define LCD_Brightness_channel TIM_CHANNEL_2
 
-static int32_t lcd_init(void);
 static int32_t lcd_gettick(void);
 static int32_t lcd_writereg(uint8_t reg,uint8_t* pdata,uint32_t length);
 static int32_t lcd_readreg(uint8_t reg,uint8_t* pdata);
@@ -32,7 +26,7 @@ static int32_t lcd_senddata(uint8_t* pdata,uint32_t length);
 static int32_t lcd_recvdata(uint8_t* pdata,uint32_t length);
 
 ST7735_IO_t st7735_pIO = {
-	lcd_init,
+	NULL,
 	NULL,
 	0,
 	lcd_writereg,
@@ -45,79 +39,71 @@ ST7735_IO_t st7735_pIO = {
 ST7735_Object_t st7735_pObj;
 uint32_t st7735_id;
 
-void LCD_Test(void)
+void lcd_init(void) {
+  lcd_brightness_timer_init();
+  lcd_brightness_timer_start();
+
+  display_spi_init();
+
+  ST7735Ctx.Orientation = ST7735_ORIENTATION_LANDSCAPE_ROT180;
+  ST7735Ctx.Panel = HannStar_Panel;
+  ST7735Ctx.Type = ST7735_0_9_inch_screen;
+
+  ST7735_RegisterBusIO(&st7735_pObj,&st7735_pIO);
+  ST7735_LCD_Driver.Init(&st7735_pObj,ST7735_FORMAT_RBG565,&ST7735Ctx);
+  ST7735_LCD_Driver.ReadID(&st7735_pObj,&st7735_id);
+
+  lcd_set_brightness(100);
+}
+
+void lcd_show_bootlogo(void)
 {
 	uint8_t text[20];
-
-	ST7735Ctx.Orientation = ST7735_ORIENTATION_LANDSCAPE_ROT180;
-	ST7735Ctx.Panel = HannStar_Panel;
-	ST7735Ctx.Type = ST7735_0_9_inch_screen;
-	
-	ST7735_RegisterBusIO(&st7735_pObj,&st7735_pIO);
-	ST7735_LCD_Driver.Init(&st7735_pObj,ST7735_FORMAT_RBG565,&ST7735Ctx);
-	ST7735_LCD_Driver.ReadID(&st7735_pObj,&st7735_id);
-	
-	LCD_SetBrightness(0);
 	
 	extern unsigned char foxxer_logo_160_80[];
 	ST7735_LCD_Driver.DrawBitmap(&st7735_pObj,0,0,foxxer_logo_160_80);
 
-  uint32_t tick = get_tick();
-	while (HAL_GPIO_ReadPin(KEY_GPIO_Port, KEY_Pin) != GPIO_PIN_SET)
+  uint32_t tick = HAL_GetTick();
+	while (1)
 	{
-		delay_ms(10);
+	  HAL_Delay(10);
 
-		if (get_tick() - tick <= 1000)
-			LCD_SetBrightness((get_tick() - tick) * 100 / 1000);
-		else if (get_tick() - tick <= 3000)
+		if (HAL_GetTick() - tick <= 1000)
+		  lcd_set_brightness((HAL_GetTick() - tick) * 100 / 1000);
+		else if (HAL_GetTick() - tick <= 3000)
 		{
-			sprintf((char *)&text, "%03d", ((int)get_tick() - (int)tick - 1000) / 10);
-			LCD_ShowString(ST7735Ctx.Width - 30, 1, ST7735Ctx.Width, 16, 16, text);
-			ST7735_LCD_Driver.FillRect(&st7735_pObj, 0, ST7735Ctx.Height - 3, (get_tick() - tick - 1000) * ST7735Ctx.Width / 2000, 3, 0xFFFF);
+			sprintf((char *)&text, "%03d", ((int)HAL_GetTick() - (int)tick - 1000) / 10);
+			lcd_show_string(ST7735Ctx.Width - 30, 1, ST7735Ctx.Width, 16, 16, text);
+			ST7735_LCD_Driver.FillRect(&st7735_pObj, 0, ST7735Ctx.Height - 3, (HAL_GetTick() - tick - 1000) * ST7735Ctx.Width / 2000, 3, 0xFFFF);
 		}
-		else if (get_tick() - tick > 3000)
+		else if (HAL_GetTick() - tick > 3000)
 			break;
 	}
-	while (HAL_GPIO_ReadPin(KEY_GPIO_Port, KEY_Pin) == GPIO_PIN_SET)
-	{
-		delay_ms(10);
-	}
-	LCD_Light(0, 300);
+	lcd_light(0, 300);
 
 	ST7735_LCD_Driver.FillRect(&st7735_pObj, 0, 0, ST7735Ctx.Width,ST7735Ctx.Height, BLACK);
 
-	sprintf((char *)&text, "WeAct Studio");
-	LCD_ShowString(4, 4, ST7735Ctx.Width, 16, 16, text);
-	sprintf((char *)&text, "STM32H7xx 0x%X", (unsigned int)HAL_GetDEVID());
-	LCD_ShowString(4, 22, ST7735Ctx.Width, 16, 16, text);
-	sprintf((char *)&text, "LCD ID:0x%X", (unsigned int)st7735_id);
-	LCD_ShowString(4, 40, ST7735Ctx.Width, 16, 16, text);
-
-	LCD_Light(100, 200);
+	lcd_light(100, 200);
 }
 
-void LCD_SetBrightness(uint32_t Brightness)
+void lcd_set_brightness(uint32_t brightness)
 {
-	__HAL_TIM_SetCompare(LCD_Brightness_timer, LCD_Brightness_channel, Brightness);
+  lcd_brightness_timer_set_brightness(brightness);
 }
 
-uint32_t LCD_GetBrightness(void)
+uint32_t lcd_get_brightness(void)
 {
-		return __HAL_TIM_GetCompare(LCD_Brightness_timer, LCD_Brightness_channel);
+  return lcd_brightness_timer_get_brightness();
 }
 
-
-// ��Ļ�𽥱������߱䰵
-// Brightness_Dis: Ŀ��ֵ
-// time: �ﵽĿ��ֵ��ʱ��,��λ: ms
-void LCD_Light(uint32_t Brightness_Dis,uint32_t time)
+void lcd_light(uint32_t Brightness_Dis,uint32_t time)
 {
 	uint32_t Brightness_Now;
 	uint32_t time_now;
 	float temp1,temp2;
 	float k,set;
 	
-	Brightness_Now = LCD_GetBrightness();
+	Brightness_Now = lcd_get_brightness();
 	time_now = 0;
 	if(Brightness_Now == Brightness_Dis)
 		return;
@@ -132,33 +118,28 @@ void LCD_Light(uint32_t Brightness_Dis,uint32_t time)
 	
 	k = temp1 / temp2;
 	
-	uint32_t tick=get_tick();
+	uint32_t tick=HAL_GetTick();
 	while(1)
 	{
-		delay_ms(1);
+		HAL_Delay(1);
 		
-		time_now = get_tick()-tick;
+		time_now = HAL_GetTick()-tick;
 		
 		temp2 = time_now - 0;
 		
 		set = temp2*k + Brightness_Now;
 		
-		LCD_SetBrightness((uint32_t)set);
+		lcd_set_brightness((uint32_t)set);
 		
 		if(time_now >= time) break;
 		
 	}
 }
 	
-uint16_t POINT_COLOR=0xFFFF;	//������ɫ
-uint16_t BACK_COLOR=BLACK;  //����ɫ 
-//��ָ��λ����ʾһ���ַ�
-//x,y:��ʼ����
-//num:Ҫ��ʾ���ַ�:" "--->"~"
-//size:�����С 12/16
-//mode:���ӷ�ʽ(1)���Ƿǵ��ӷ�ʽ(0)  
+uint16_t POINT_COLOR=0xFFFF;
+uint16_t BACK_COLOR=BLACK;
 
-void LCD_ShowChar(uint16_t x,uint16_t y,uint8_t num,uint8_t size,uint8_t mode)
+void lcd_show_char(uint16_t x,uint16_t y,uint8_t num,uint8_t size,uint8_t mode)
 {  							  
   uint8_t temp,t1,t;
 	uint16_t y0=y;
@@ -171,17 +152,16 @@ void LCD_ShowChar(uint16_t x,uint16_t y,uint8_t num,uint8_t size,uint8_t mode)
 	
   ST7735_GetXSize(&st7735_pObj,&w);
 	ST7735_GetYSize(&st7735_pObj,&h);
-	
-	//���ô���		   
-	num=num-' ';//�õ�ƫ�ƺ��ֵ
+
+	num=num-' ';
 	count = 0;
 	
-	if(!mode) //�ǵ��ӷ�ʽ
+	if(!mode)
 	{
 		for(t=0;t<size;t++)
 		{   
-			if(size==12)temp=asc2_1206[num][t];  //����1206����
-			else temp=asc2_1608[num][t];		 //����1608����
+			if(size==12)temp=asc2_1206[num][t];
+			else temp=asc2_1608[num][t];
 			
 			for(t1=0;t1<8;t1++)
 			{			    
@@ -196,23 +176,23 @@ void LCD_ShowChar(uint16_t x,uint16_t y,uint8_t num,uint8_t size,uint8_t mode)
 				
 				temp<<=1;
 				y++;
-				if(y>=h){POINT_COLOR=colortemp;return;}//��������
+				if(y>=h){POINT_COLOR=colortemp;return;}
 				if((y-y0)==size)
 				{
 					y=y0;
 					x++;
-					if(x>=w){POINT_COLOR=colortemp;return;}//��������
+					if(x>=w){POINT_COLOR=colortemp;return;}
 					break;
 				}
 			}
 		}
 	}
-	else//���ӷ�ʽ
+	else
 	{
 		for(t=0;t<size;t++)
 		{   
-			if(size==12)temp=asc2_1206[num][t];  //����1206����
-			else temp=asc2_1608[num][t];		 //����1608���� 	                          
+			if(size==12)temp=asc2_1206[num][t];
+			else temp=asc2_1608[num][t];
 			for(t1=0;t1<8;t1++)
 			{			    
 				if(temp&0x80)
@@ -222,12 +202,12 @@ void LCD_ShowChar(uint16_t x,uint16_t y,uint8_t num,uint8_t size,uint8_t mode)
 				
 				temp<<=1;
 				y++;
-				if(y>=h){POINT_COLOR=colortemp;return;}//��������
+				if(y>=h){POINT_COLOR=colortemp;return;}
 				if((y-y0)==size)
 				{
 					y=y0;
 					x++;
-					if(x>=w){POINT_COLOR=colortemp;return;}//��������
+					if(x>=w){POINT_COLOR=colortemp;return;}
 					break;
 				}
 			}  	 
@@ -237,31 +217,19 @@ void LCD_ShowChar(uint16_t x,uint16_t y,uint8_t num,uint8_t size,uint8_t mode)
 	POINT_COLOR=colortemp;	    	   	 	  
 }   
 
-//��ʾ�ַ���
-//x,y:�������
-//width,height:�����С  
-//size:�����С
-//*p:�ַ�����ʼ��ַ
-void LCD_ShowString(uint16_t x,uint16_t y,uint16_t width,uint16_t height,uint8_t size,uint8_t *p)
+void lcd_show_string(uint16_t x,uint16_t y,uint16_t width,uint16_t height,uint8_t size,uint8_t *p)
 {         
 	uint8_t x0=x;
 	width+=x;
 	height+=y;
-    while((*p<='~')&&(*p>=' '))//�ж��ǲ��ǷǷ��ַ�!
+    while((*p<='~')&&(*p>=' '))
     {       
         if(x>=width){x=x0;y+=size;}
-        if(y>=height)break;//�˳�
-        LCD_ShowChar(x,y,*p,size,0);
+        if(y>=height)break;
+        lcd_show_char(x,y,*p,size,0);
         x+=size/2;
         p++;
     }  
-}
-
-static int32_t lcd_init(void)
-{
-	int32_t result = ST7735_OK;
-	HAL_TIMEx_PWMN_Start(LCD_Brightness_timer,LCD_Brightness_channel);
-	return result;
 }
 
 static int32_t lcd_gettick(void)
@@ -274,10 +242,10 @@ static int32_t lcd_writereg(uint8_t reg,uint8_t* pdata,uint32_t length)
 	int32_t result;
 	LCD_CS_RESET;
 	LCD_RS_RESET;
-	result = HAL_SPI_Transmit(SPI_Drv,&reg,1,100);
+	result = display_spi_transmit(&reg, 1, 100);
 	LCD_RS_SET;
 	if(length > 0)
-		result += HAL_SPI_Transmit(SPI_Drv,pdata,length,500);
+		result += display_spi_transmit(pdata, length, 500);
 	LCD_CS_SET;
 	if(result>0){
 		result = -1;}
@@ -292,9 +260,9 @@ static int32_t lcd_readreg(uint8_t reg,uint8_t* pdata)
 	LCD_CS_RESET;
 	LCD_RS_RESET;
 	
-	result = HAL_SPI_Transmit(SPI_Drv,&reg,1,100);
+	result = display_spi_transmit(&reg, 1, 100);
 	LCD_RS_SET;
-	result += HAL_SPI_Receive(SPI_Drv,pdata,1,500);
+	result += display_spi_receive(pdata, 1, 500);
 	LCD_CS_SET;
 	if(result>0){
 		result = -1;}
@@ -308,7 +276,7 @@ static int32_t lcd_senddata(uint8_t* pdata,uint32_t length)
 	int32_t result;
 	LCD_CS_RESET;
 	//LCD_RS_SET;
-	result =HAL_SPI_Transmit(SPI_Drv,pdata,length,100);
+	result =display_spi_transmit(pdata, length, 100);
 	LCD_CS_SET;
 	if(result>0){
 		result = -1;}
@@ -322,7 +290,7 @@ static int32_t lcd_recvdata(uint8_t* pdata,uint32_t length)
 	int32_t result;
 	LCD_CS_RESET;
 	//LCD_RS_SET;
-	result = HAL_SPI_Receive(SPI_Drv,pdata,length,500);
+	result = display_spi_receive(pdata, length, 500);
 	LCD_CS_SET;
 	if(result>0){
 		result = -1;}

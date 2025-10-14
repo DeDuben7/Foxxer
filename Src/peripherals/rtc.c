@@ -1,49 +1,51 @@
-/* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file    rtc.c
-  * @brief   This file provides code for the configuration
-  *          of the RTC instances.
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2023 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
-/* USER CODE END Header */
-/* Includes ------------------------------------------------------------------*/
+ ******************************************************************************
+ * @file      rtc.c
+ * @brief     short description
+ * @version   version
+ * @author    R. van Renswoude
+ * @date      2025
+ ******************************************************************************
+ * @details detailed description
+ ******************************************************************************
+ * @attention
+ *
+ * <h2><center>&copy; Copyright (c) 2025 Ruben van Renswoude.
+ * All rights reserved.</center></h2>
+ *
+ ******************************************************************************
+ */
+/**
+ * @addtogroup  Peripherals
+ * @{
+ */
+
+
+/* Includes -------------------------------------------------------------------*/
+
 #include "rtc.h"
 
-/* USER CODE BEGIN 0 */
+/* Defines -------------------------------------------------------------------*/
 
-/* USER CODE END 0 */
+/* Typedefs -------------------------------------------------------------------*/
+
+/* Variables -------------------------------------------------------------------*/
 
 RTC_HandleTypeDef hrtc;
+
+/* Function prototypes ---------------------------------------------------------*/
+
+/* Functions -------------------------------------------------------------------*/
 
 /**
   * @brief RTC Initialization Function
   * @param None
   * @retval None
   */
-void MX_RTC_Init(void)
+void rtc_init(void)
 {
-
-  /* USER CODE BEGIN RTC_Init 0 */
-
-  /* USER CODE END RTC_Init 0 */
-
   RTC_TimeTypeDef sTime = {0};
   RTC_DateTypeDef sDate = {0};
-
-  /* USER CODE BEGIN RTC_Init 1 */
-
-  /* USER CODE END RTC_Init 1 */
 
   /** Initialize RTC Only
   */
@@ -57,12 +59,8 @@ void MX_RTC_Init(void)
   hrtc.Init.OutPutRemap = RTC_OUTPUT_REMAP_NONE;
   if (HAL_RTC_Init(&hrtc) != HAL_OK)
   {
-    Error_Handler();
+    //Error_Handler();
   }
-
-  /* USER CODE BEGIN Check_RTC_BKUP */
-
-  /* USER CODE END Check_RTC_BKUP */
 
   /** Initialize RTC and set the Time and Date
   */
@@ -73,7 +71,7 @@ void MX_RTC_Init(void)
   sTime.StoreOperation = RTC_STOREOPERATION_RESET;
   if (HAL_RTC_SetTime(&hrtc, &sTime, RTC_FORMAT_BCD) != HAL_OK)
   {
-    Error_Handler();
+    //Error_Handler();
   }
   sDate.WeekDay = RTC_WEEKDAY_SATURDAY;
   sDate.Month = RTC_MONTH_OCTOBER;
@@ -82,12 +80,19 @@ void MX_RTC_Init(void)
 
   if (HAL_RTC_SetDate(&hrtc, &sDate, RTC_FORMAT_BCD) != HAL_OK)
   {
-    Error_Handler();
+    //Error_Handler();
   }
-  /* USER CODE BEGIN RTC_Init 2 */
+}
 
-  /* USER CODE END RTC_Init 2 */
-
+/**
+  * @brief  Get the current time and date.
+  * @param
+  * @retval None
+  */
+void rtc_read_date_time(RTC_DateTypeDef *sdatestructureget,RTC_TimeTypeDef *stimestructureget) {
+  // Both time and date must be obtained or RTC cannot be read next time
+  HAL_RTC_GetTime(&hrtc, stimestructureget, RTC_FORMAT_BIN); // Get the RTC current Time
+  HAL_RTC_GetDate(&hrtc, sdatestructureget, RTC_FORMAT_BIN); // Get the RTC current Date
 }
 
 /**
@@ -101,9 +106,6 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
   RCC_PeriphCLKInitTypeDef PeriphClkInitStruct = {0};
   if(hrtc->Instance==RTC)
   {
-    /* USER CODE BEGIN RTC_MspInit 0 */
-
-    /* USER CODE END RTC_MspInit 0 */
 
   /** Initializes the peripherals clock
   */
@@ -111,17 +113,12 @@ void HAL_RTC_MspInit(RTC_HandleTypeDef* hrtc)
     PeriphClkInitStruct.RTCClockSelection = RCC_RTCCLKSOURCE_LSI;
     if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInitStruct) != HAL_OK)
     {
-      Error_Handler();
+      //Error_Handler();
     }
 
     /* Peripheral clock enable */
     __HAL_RCC_RTC_ENABLE();
-    /* USER CODE BEGIN RTC_MspInit 1 */
-
-    /* USER CODE END RTC_MspInit 1 */
-
   }
-
 }
 
 /**
@@ -134,18 +131,7 @@ void HAL_RTC_MspDeInit(RTC_HandleTypeDef* hrtc)
 {
   if(hrtc->Instance==RTC)
   {
-    /* USER CODE BEGIN RTC_MspDeInit 0 */
-
-    /* USER CODE END RTC_MspDeInit 0 */
     /* Peripheral clock disable */
     __HAL_RCC_RTC_DISABLE();
-    /* USER CODE BEGIN RTC_MspDeInit 1 */
-
-    /* USER CODE END RTC_MspDeInit 1 */
   }
-
 }
-
-/* USER CODE BEGIN 1 */
-
-/* USER CODE END 1 */
