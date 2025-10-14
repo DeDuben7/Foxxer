@@ -7,6 +7,7 @@
 #include "sa818.h"
 #include "board.h"
 #include "rotary_encoders.h"
+#include "menu.h"
 
 void SystemClock_Config(void);
 static void MPU_Config(void);
@@ -45,39 +46,45 @@ int main(void)
 
 	lcd_show_bootlogo();
 
-	uint8_t text[20];
-	RTC_DateTypeDef sdatestructureget;
-	RTC_TimeTypeDef stimestructureget;
+	menu_init();
+
+//	uint8_t text[20];
+//	RTC_DateTypeDef sdatestructureget;
+//	RTC_TimeTypeDef stimestructureget;
 
 	uint32_t tick_now,tick_time;
 
 	tick_now = HAL_GetTick();
 	tick_time = tick_now;
 
+	bool led_state = false;
+
   while (1)
   {
     tick_now = HAL_GetTick();
     rotary_task();
+    menu_task();
 
-		if(tick_now > tick_time)
+		if(tick_now > tick_time) // toggle led periodically
 		{
 			tick_time = tick_now + 500;
 
-			board_led_set(1);
+			led_state = !led_state;
+			board_led_set(led_state);
 
-			rtc_read_date_time(&sdatestructureget,&stimestructureget);
-
-			if (stimestructureget.SubSeconds > 128)
-				sprintf((char *)&text,"Time: %02d:%02d:%02d", stimestructureget.Hours, stimestructureget.Minutes, stimestructureget.Seconds);
-			else
-				sprintf((char *)&text,"Time: %02d %02d", stimestructureget.Hours, stimestructureget.Minutes);
-
-			lcd_show_string(4, 4, 160, 16, 16, text);
-
-			sprintf((char *)&text,"Tick: %d ms",(int)HAL_GetTick());
-			lcd_show_string(4, 22, 160, 16, 16,text);
-
-			board_led_set(0);
+//			rtc_read_date_time(&sdatestructureget,&stimestructureget);
+//
+//			if (stimestructureget.SubSeconds > 128)
+//				sprintf((char *)&text,"Time: %02d:%02d:%02d", stimestructureget.Hours, stimestructureget.Minutes, stimestructureget.Seconds);
+//			else
+//				sprintf((char *)&text,"Time: %02d %02d", stimestructureget.Hours, stimestructureget.Minutes);
+//
+//			lcd_show_string(4, 4, 160, 16, 16, text);
+//
+//			sprintf((char *)&text,"Tick: %d ms",(int)HAL_GetTick());
+//			lcd_show_string(4, 22, 160, 16, 16,text);
+//
+//			board_led_set(0);
 		}
   }
 }

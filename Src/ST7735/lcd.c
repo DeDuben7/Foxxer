@@ -52,8 +52,6 @@ void lcd_init(void) {
   ST7735_RegisterBusIO(&st7735_pObj,&st7735_pIO);
   ST7735_LCD_Driver.Init(&st7735_pObj,ST7735_FORMAT_RBG565,&ST7735Ctx);
   ST7735_LCD_Driver.ReadID(&st7735_pObj,&st7735_id);
-
-  lcd_set_brightness(100);
 }
 
 void lcd_show_bootlogo(void)
@@ -86,18 +84,23 @@ void lcd_show_bootlogo(void)
 	lcd_light(100, 200);
 }
 
-void lcd_set_brightness(uint32_t brightness)
-{
+void lcd_clear(void) {
+  ST7735_LCD_Driver.FillRect(&st7735_pObj, 0, 0, ST7735Ctx.Width,ST7735Ctx.Height, BLACK);
+}
+
+void lcd_set_brightness(uint32_t brightness) {
   lcd_brightness_timer_set_brightness(brightness);
 }
 
-uint32_t lcd_get_brightness(void)
-{
+uint32_t lcd_get_brightness(void) {
   return lcd_brightness_timer_get_brightness();
 }
 
-void lcd_light(uint32_t Brightness_Dis,uint32_t time)
-{
+uint32_t lcd_get_width(void) {
+  return ST7735Ctx.Width;
+}
+
+void lcd_light(uint32_t Brightness_Dis,uint32_t time) {
 	uint32_t Brightness_Now;
 	uint32_t time_now;
 	float temp1,temp2;

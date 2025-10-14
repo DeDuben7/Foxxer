@@ -2,6 +2,7 @@
 
 #include "rotary_encoders.h"
 #include "lcd.h"
+#include "menu.h"
 
 // Optional time structure (if you already have RTC code)
 extern RTC_TimeTypeDef stimestructureget;
@@ -95,12 +96,11 @@ void rotary_scan(rotary_encoder_t *enc)
     if (enc->stable_clk != enc->last_clk) {
         if (enc->stable_dt != enc->stable_clk) {
             enc->counter++;
+            enc == &rotaries[0] ? menu_step_through(1) : menu_value_step(1);
         } else {
             enc->counter--;
+            enc == &rotaries[0] ? menu_step_through(-1) : menu_value_step(-1);
         }
-
-        sprintf(text, "Rot%d: %ld   ", (enc == &rotaries[0]) ? 1 : 2, enc->counter);
-        lcd_show_string(4, y, 160, 16, 16, (uint8_t *)text);
     }
     enc->last_clk = enc->stable_clk;
 
@@ -108,8 +108,8 @@ void rotary_scan(rotary_encoder_t *enc)
     if (enc->stable_sw != enc->last_sw) {
         if (enc->stable_sw == GPIO_PIN_RESET) {
             enc->counter = 0;
-            sprintf(text, "Rot%d: %ld   ", (enc == &rotaries[0]) ? 1 : 2, enc->counter);
-            lcd_show_string(4, y, 160, 16, 16, (uint8_t *)text);
+            //sprintf(text, "Rot%d: %ld   ", (enc == &rotaries[0]) ? 1 : 2, enc->counter);
+            //lcd_show_string(4, y, 160, 16, 16, (uint8_t *)text);
         }
     }
     enc->last_sw = enc->stable_sw;
