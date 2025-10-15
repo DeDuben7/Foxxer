@@ -44,6 +44,7 @@ static uint8_t update_display_async = 1;
 static void draw_home_screen(void);
 static void draw_menu_screen(void);
 static void draw_scrollbar(uint8_t top, uint8_t total, uint8_t visible);
+static void menu_commit_if_pending(void);
 static void menu_on_value_committed(void);
 
 // SA818 menu handlers
@@ -130,13 +131,25 @@ void menu_init(void)
 
 void menu_toggle(void)
 {
-    ui_state = (ui_state == ui_state_home) ? ui_state_menu : ui_state_home;
+    if (ui_state == ui_state_menu)
+    {
+        // Commit any uncommitted changes before exiting menu
+        menu_commit_if_pending();
+        ui_state = ui_state_home;
+    }
+    else
+    {
+        ui_state = ui_state_menu;
+    }
+
     update_display_async = 1;
 }
 
 void menu_step_through(int step)
 {
     if (ui_state != ui_state_menu) return;
+
+    menu_commit_if_pending();
 
     int next = (int)current_menu + step;
     if (next < 0) next = menu_item_count - 1;
@@ -167,9 +180,8 @@ void menu_task(void)
     uint32_t now = HAL_GetTick();
 
     if (local_value && (now - last_value_change_time >= MENU_COMMIT_DELAY_MS)) {
-        local_value = 0;
+        menu_commit_if_pending();
         update_display_async = 1;
-        menu_on_value_committed();
     }
 
     if (update_display_async && (now - last_draw_time >= MENU_REDRAW_INTERVAL_MS)) {
@@ -260,6 +272,15 @@ static void draw_scrollbar(uint8_t top, uint8_t total, uint8_t visible)
 // ---------------------------------------------------------------------------
 // Commit callback
 // ---------------------------------------------------------------------------
+static void menu_commit_if_pending(void)
+{
+    if (local_value)
+    {
+        local_value = 0;
+        menu_on_value_committed();
+    }
+}
+
 static void menu_on_value_committed(void)
 {
     printf("[commit] %s = %s\n",
