@@ -24,6 +24,7 @@
 /* Includes -------------------------------------------------------------------*/
 
 #include <string.h>
+#include <stdbool.h>
 
 #include "stm32h7xx_hal.h"
 #include "gpio.h"
@@ -37,6 +38,10 @@
 /* Variables -------------------------------------------------------------------*/
 
 UART_HandleTypeDef sa818_uart_handle;
+
+static volatile bool sa818_tx_complete = true;
+static volatile bool sa818_rx_complete = true;
+static volatile uint16_t sa818_rx_len = 0;
 
 /* Function prototypes ---------------------------------------------------------*/
 
@@ -114,6 +119,98 @@ void sa818_uart_flush(void)
     while (__HAL_UART_GET_FLAG(&sa818_uart_handle, UART_FLAG_RXNE) != RESET) {
         dummy = (uint8_t)(sa818_uart_handle.Instance->RDR);
         (void)dummy;
+    }
+}
+
+// TX DMA --------------------------------------------------------------
+void sa818_uart_tx_dma(const char *data, uint16_t len)
+{
+    if (len == 0 || data == NULL) return;
+
+    // Wait if a previous transfer is still running
+    if (!sa818_tx_complete)
+        return;
+
+    sa818_tx_complete = false;
+    HAL_UART_Transmit_DMA(&sa818_uart_handle, (uint8_t*)data, len);
+}
+
+// RX DMA --------------------------------------------------------------
+void sa818_uart_rx_dma(uint8_t *buf, uint16_t len)
+{
+    if (len == 0 || buf == NULL) return;
+
+    // Stop any previous RX
+    HAL_UART_AbortReceive(&sa818_uart_handle);
+
+    sa818_rx_complete = false;
+    sa818_rx_len = 0;
+
+#if defined(HAL_UARTEx_ReceiveToIdle_DMA)
+    HAL_UARTEx_ReceiveToIdle_DMA(&sa818_uart_handle, buf, len);
+#else
+    HAL_UART_Receive_DMA(&sa818_uart_handle, buf, len);
+#endif
+}
+
+// Status checks -------------------------------------------------------
+bool sa818_uart_tx_done(void)
+{
+    return sa818_tx_complete;
+}
+
+bool sa818_uart_rx_done(void)
+{
+    return sa818_rx_complete;
+}
+
+int sa818_uart_rx_length(void)
+{
+    return sa818_rx_len;
+}
+
+void sa818_uart_abort_rx(void)
+{
+    HAL_UART_AbortReceive(&sa818_uart_handle);
+    sa818_rx_complete = true;
+    sa818_rx_len = 0;
+}
+
+// ---------------------------------------------------------------------------
+// HAL Callbacks
+// ---------------------------------------------------------------------------
+void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+        sa818_tx_complete = true;
+}
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+    {
+        sa818_rx_complete = true;
+        // If full-length DMA completed (not idle)
+        sa818_rx_len = huart->RxXferSize;
+    }
+}
+
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t size)
+{
+    if (huart->Instance == USART3)
+    {
+        sa818_rx_complete = true;
+        sa818_rx_len = size;
+    }
+}
+
+void HAL_UART_ErrorCallback(UART_HandleTypeDef *huart)
+{
+    if (huart->Instance == USART3)
+    {
+        sa818_tx_complete = true;
+        sa818_rx_complete = true;
+        sa818_rx_len = 0;
     }
 }
 
