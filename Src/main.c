@@ -1,5 +1,3 @@
-
-#include <lcd_brightness_timer.h>
 #include "gpio.h"
 #include "lcd.h"
 #include "rtc.h"
@@ -8,6 +6,7 @@
 #include "board.h"
 #include "rotary_encoders.h"
 #include "menu.h"
+#include "led.h"
 
 void SystemClock_Config(void);
 static void MPU_Config(void);
@@ -20,72 +19,26 @@ static void MPU_Config(void);
 int main(void)
 {
   MPU_Config();
-
   HAL_Init();
-
   SystemClock_Config();
 
   gpio_init();
-
   board_button_init();
-	board_led_init();
+  rotary_init();
+  lcd_init();
+  sa818_init();
+  led_init();
 
-	rotary_init();
-	lcd_init();
-	sa818_init();
-
-	// === Rotary Encoder 1 ===
-  rotary_add(ROT1CLK_GPIO_Port, ROT1CLK_Pin,
-             ROT1DAT_GPIO_Port, ROT1DAT_Pin,
-             ROT1SW_GPIO_Port,  ROT1SW_Pin);
-
-  // === Rotary Encoder 2 ===
-  rotary_add(ROT2CLK_GPIO_Port, ROT2CLK_Pin,
-             ROT2DAT_GPIO_Port, ROT2DAT_Pin,
-             ROT2SW_GPIO_Port,  ROT2SW_Pin);
-
-	lcd_show_bootlogo();
-
-	menu_init();
-
-//	uint8_t text[20];
-//	RTC_DateTypeDef sdatestructureget;
-//	RTC_TimeTypeDef stimestructureget;
-
-	uint32_t tick_now,tick_time;
-
-	tick_now = HAL_GetTick();
-	tick_time = tick_now;
-
-	bool led_state = false;
+  // rotary setup...
+  lcd_show_bootlogo();
+  menu_init();
 
   while (1)
   {
-    tick_now = HAL_GetTick();
-    rotary_task();
-    menu_task();
-
-		if(tick_now > tick_time) // toggle led periodically
-		{
-			tick_time = tick_now + 500;
-
-			led_state = !led_state;
-			board_led_set(led_state);
-
-//			rtc_read_date_time(&sdatestructureget,&stimestructureget);
-//
-//			if (stimestructureget.SubSeconds > 128)
-//				sprintf((char *)&text,"Time: %02d:%02d:%02d", stimestructureget.Hours, stimestructureget.Minutes, stimestructureget.Seconds);
-//			else
-//				sprintf((char *)&text,"Time: %02d %02d", stimestructureget.Hours, stimestructureget.Minutes);
-//
-//			lcd_show_string(4, 4, 160, 16, 16, text);
-//
-//			sprintf((char *)&text,"Tick: %d ms",(int)HAL_GetTick());
-//			lcd_show_string(4, 22, 160, 16, 16,text);
-//
-//			board_led_set(0);
-		}
+      rotary_task();
+      menu_task();
+      sa818_task();
+      led_task();
   }
 }
 
