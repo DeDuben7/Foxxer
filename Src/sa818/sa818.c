@@ -7,12 +7,13 @@
 #include "sa818_uart.h"
 #include "gpio.h"
 #include "test_tone.h"
+#include "menu.h"
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 #define CRLF "\r\n"
-#define SA818_RSSI_POLL_INTERVAL_MS   1000
+#define SA818_RSSI_POLL_INTERVAL_MS   10
 #define SA818_CMD_TIMEOUT_MS          300
 // #define DEBUG_SA818  // Uncomment for debug prints
 
@@ -453,6 +454,7 @@ static void sa818_process_response(void)
         char *eq = strchr((char*)sa818_rxbuf, '=');
         if (eq) {
             sa818_settings.rssi = (uint8_t)atoi(eq + 1);
+            menu_update_display_async(); // make sure home window is updated
         }
     }
 

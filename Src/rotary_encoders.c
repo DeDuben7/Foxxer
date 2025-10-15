@@ -3,6 +3,7 @@
 #include "rotary_encoders.h"
 #include "lcd.h"
 #include "menu.h"
+#include "gpio.h"
 
 // Optional time structure (if you already have RTC code)
 extern RTC_TimeTypeDef stimestructureget;
@@ -45,7 +46,17 @@ void rotary_add(GPIO_TypeDef *port_clk, uint16_t pin_clk,
 
 void rotary_init(void)
 {
-    rotary_count = 0;
+  rotary_count = 0;
+
+  // === Rotary Encoder 1 ===
+  rotary_add(ROT1CLK_GPIO_Port, ROT1CLK_Pin,
+             ROT1DAT_GPIO_Port, ROT1DAT_Pin,
+             ROT1SW_GPIO_Port,  ROT1SW_Pin);
+
+  // === Rotary Encoder 2 ===
+  rotary_add(ROT2CLK_GPIO_Port, ROT2CLK_Pin,
+             ROT2DAT_GPIO_Port, ROT2DAT_Pin,
+             ROT2SW_GPIO_Port,  ROT2SW_Pin);
 }
 
 void rotary_task(void)

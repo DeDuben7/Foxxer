@@ -9,8 +9,9 @@
 #include "led.h"
 #include "test_tone.h"
 
-void SystemClock_Config(void);
+static void SystemClock_Config(void);
 static void MPU_Config(void);
+static void MX_DMA_Init(void);
 
 
 /**
@@ -22,6 +23,7 @@ int main(void)
   MPU_Config();
   HAL_Init();
   SystemClock_Config();
+  MX_DMA_Init();
 
   gpio_init();
   board_button_init();
@@ -49,7 +51,7 @@ int main(void)
   * @brief System Clock Configuration
   * @retval None
   */
-void SystemClock_Config(void)
+static void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
@@ -104,7 +106,7 @@ void SystemClock_Config(void)
   }
 }
 
-void MPU_Config(void)
+static void MPU_Config(void)
 {
   MPU_Region_InitTypeDef MPU_InitStruct = {0};
 
@@ -129,6 +131,24 @@ void MPU_Config(void)
   /* Enables the MPU */
   HAL_MPU_Enable(MPU_PRIVILEGED_DEFAULT);
 
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 5, 0);  // USART3_RX (High priority)
+  HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
+
+  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 7, 0);  // USART3_TX (Lower priority)
+  HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
+
+  HAL_NVIC_SetPriority(USART3_IRQn, 6, 0);        // UART IDLE interrupt in between
+  HAL_NVIC_EnableIRQ(USART3_IRQn);
 }
 
 /**

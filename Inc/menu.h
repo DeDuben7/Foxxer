@@ -26,5 +26,6 @@ void menu_step_through(int step);
 void menu_value_step(int step);
 void menu_toggle(void);   // toggles between home view and menu view
 void menu_task(void);     // run from main loop
+void menu_update_display_async(void);
 
 #endif // MENU_H

@@ -14,7 +14,7 @@
 // Configuration
 // ---------------------------------------------------------------------------
 #define MENU_COMMIT_DELAY_MS     200
-#define MENU_REDRAW_INTERVAL_MS  100
+#define MENU_REDRAW_INTERVAL_MS  20
 #define MENU_VISIBLE_LINES       4
 
 #define LCD_FONT_SIZE            16
@@ -195,6 +195,10 @@ void menu_task(void)
     }
 }
 
+void menu_update_display_async(void) {
+  update_display_async = 1;
+}
+
 // ---------------------------------------------------------------------------
 // Drawing helpers
 // ---------------------------------------------------------------------------
@@ -203,28 +207,47 @@ static void draw_home_screen(void)
     const sa818_settings_t *s = sa818_get_settings();
     char line[32];
 
+    // --- Static cache of previous text ---
+    static char prev_version[32] = "";
+    static char prev_mode_freq[32] = "";
+    static char prev_rssi[32] = "";
+    static char prev_atten[32] = "";
+
     // --- Line 1: Title / version ---
-    lcd_draw_filled_rect(0, 4, lcd_get_width(), LCD_LINE_SPACING, BLACK);
     snprintf(line, sizeof(line), "SA818 v%s", s->version);
-    lcd_show_string(4, 4, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
+    if (strcmp(line, prev_version) != 0) {
+        lcd_draw_filled_rect(0, 4, lcd_get_width(), LCD_LINE_SPACING, BLACK);
+        lcd_show_string(4, 4, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
+        strncpy(prev_version, line, sizeof(prev_version));
+    }
 
     // --- Line 2: Mode and frequency ---
-    lcd_draw_filled_rect(0, 22, lcd_get_width(), LCD_LINE_SPACING, BLACK);
     snprintf(line, sizeof(line), "%s %.4f MHz",
              s->mode == SA818_MODE_RX ? "RX" : "TX",
              (s->mode == SA818_MODE_RX) ? s->rx_frequency : s->tx_frequency);
-    lcd_show_string(4, 22, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
+    if (strcmp(line, prev_mode_freq) != 0) {
+        lcd_draw_filled_rect(0, 22, lcd_get_width(), LCD_LINE_SPACING, BLACK);
+        lcd_show_string(4, 22, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
+        strncpy(prev_mode_freq, line, sizeof(prev_mode_freq));
+    }
 
     // --- Line 3: RSSI ---
-    lcd_draw_filled_rect(0, 40, lcd_get_width(), LCD_LINE_SPACING, BLACK);
     snprintf(line, sizeof(line), "RSSI: %d dBm", s->rssi);
-    lcd_show_string(4, 40, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
+    if (strcmp(line, prev_rssi) != 0) {
+        lcd_draw_filled_rect(0, 40, lcd_get_width(), LCD_LINE_SPACING, BLACK);
+        lcd_show_string(4, 40, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
+        strncpy(prev_rssi, line, sizeof(prev_rssi));
+    }
 
     // --- Line 4: Attenuator ---
-    lcd_draw_filled_rect(0, 58, lcd_get_width(), LCD_LINE_SPACING, BLACK);
     snprintf(line, sizeof(line), "Atten: %.1f dB", attenuator_get());
-    lcd_show_string(4, 58, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
+    if (strcmp(line, prev_atten) != 0) {
+        lcd_draw_filled_rect(0, 58, lcd_get_width(), LCD_LINE_SPACING, BLACK);
+        lcd_show_string(4, 58, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
+        strncpy(prev_atten, line, sizeof(prev_atten));
+    }
 }
+
 
 static void draw_menu_screen(void)
 {
