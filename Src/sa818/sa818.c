@@ -85,8 +85,6 @@ static void sa818_set_ptt_level(pin_level_t level);
 static void sa818_set_low_power(void);
 static void sa818_set_high_power(void);
 
-
-
 // ---------------------------------------------------------------------------
 // Init
 // ---------------------------------------------------------------------------
@@ -196,39 +194,86 @@ const sa818_settings_t* sa818_get_settings(void) {
     return &sa818_settings;
 }
 
-void sa818_set_tx_frequency(float freq) {
+void sa818_set_bandwidth(uint8_t bw)
+{
+    sa818_settings.bandwidth = bw ? 1 : 0;
+    sa818_set_group_dma(&sa818_settings);
+}
+
+void sa818_set_tx_frequency(float freq)
+{
     sa818_settings.tx_frequency = freq;
-    sa818_set_bandwidth(sa818_settings.bandwidth);
+    // Update both TX/RX frequencies (they share same group config)
+    sa818_set_group_dma(&sa818_settings);
 }
 
-void sa818_set_rx_frequency(float freq) {
+void sa818_set_rx_frequency(float freq)
+{
     sa818_settings.rx_frequency = freq;
-    sa818_set_bandwidth(sa818_settings.bandwidth);
+    sa818_set_group_dma(&sa818_settings);
 }
 
-void sa818_set_tx_subaudio(const char *code) {
-    strncpy(sa818_settings.tx_subaudio, code, sizeof(sa818_settings.tx_subaudio));
-    sa818_set_bandwidth(sa818_settings.bandwidth);
+void sa818_set_tx_subaudio(const char *code)
+{
+    if (code) {
+        strncpy(sa818_settings.tx_subaudio, code, sizeof(sa818_settings.tx_subaudio) - 1);
+        sa818_settings.tx_subaudio[sizeof(sa818_settings.tx_subaudio) - 1] = '\0';
+    }
+    sa818_set_group_dma(&sa818_settings);
 }
 
-void sa818_set_rx_subaudio(const char *code) {
-    strncpy(sa818_settings.rx_subaudio, code, sizeof(sa818_settings.rx_subaudio));
-    sa818_set_bandwidth(sa818_settings.bandwidth);
+void sa818_set_rx_subaudio(const char *code)
+{
+    if (code) {
+        strncpy(sa818_settings.rx_subaudio, code, sizeof(sa818_settings.rx_subaudio) - 1);
+        sa818_settings.rx_subaudio[sizeof(sa818_settings.rx_subaudio) - 1] = '\0';
+    }
+    sa818_set_group_dma(&sa818_settings);
 }
 
-void sa818_set_squelch(uint8_t sq) {
-    sa818_settings.squelch = (sq > 8) ? 8 : sq;
-    sa818_set_bandwidth(sa818_settings.bandwidth);
+void sa818_set_squelch(uint8_t sq)
+{
+    if (sq > 8) sq = 8;
+    sa818_settings.squelch = sq;
+    sa818_set_group_dma(&sa818_settings);
 }
 
-void sa818_set_highpass(uint8_t value) {
+void sa818_set_volume_level(uint8_t vol)
+{
+    if (vol < 1) vol = 1;
+    if (vol > 8) vol = 8;
+    sa818_settings.volume = vol;
+    sa818_set_volume_dma(vol);
+}
+
+void sa818_set_pre_de_emph(uint8_t value)
+{
+    sa818_settings.pre_de_emph = value ? 1 : 0;
+    sa818_set_filter_dma(sa818_settings.pre_de_emph,
+                         sa818_settings.highpass,
+                         sa818_settings.lowpass);
+}
+
+void sa818_set_highpass(uint8_t value)
+{
     sa818_settings.highpass = value ? 1 : 0;
-    sa818_set_pre_de_emph(sa818_settings.pre_de_emph);
+    sa818_set_filter_dma(sa818_settings.pre_de_emph,
+                         sa818_settings.highpass,
+                         sa818_settings.lowpass);
 }
 
-void sa818_set_lowpass(uint8_t value) {
+void sa818_set_lowpass(uint8_t value)
+{
     sa818_settings.lowpass = value ? 1 : 0;
-    sa818_set_pre_de_emph(sa818_settings.pre_de_emph);
+    sa818_set_filter_dma(sa818_settings.pre_de_emph,
+                         sa818_settings.highpass,
+                         sa818_settings.lowpass);
+}
+
+void sa818_set_tail_tone(uint8_t value)
+{
+    sa818_settings.tail_tone = value ? 1 : 0;
+    sa818_set_tail_dma(sa818_settings.tail_tone);
 }
 
 void sa818_set_mode(sa818_mode_t mode) {
