@@ -140,6 +140,10 @@ sa818_status_t sa818_init(void)
 		return SA818_ERROR;
 	}
 
+	if (sa818_get_version_blocking(sa818_settings.version, sizeof(sa818_settings.version)) != SA818_OK){
+		return SA818_ERROR;
+	}
+
 	return SA818_OK;
 }
 
