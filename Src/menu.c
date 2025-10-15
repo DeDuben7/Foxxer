@@ -14,7 +14,7 @@
 // Configuration
 // ---------------------------------------------------------------------------
 #define MENU_COMMIT_DELAY_MS     200
-#define MENU_REDRAW_INTERVAL_MS  20
+#define MENU_REDRAW_INTERVAL_MS  40
 #define MENU_VISIBLE_LINES       4
 
 #define LCD_FONT_SIZE            16
@@ -37,6 +37,7 @@ static uint32_t last_draw_time = 0;
 
 static uint8_t local_value = 0;
 static uint8_t update_display_async = 1;
+static uint8_t force_full_redraw = 0;
 
 // ---------------------------------------------------------------------------
 // Forward declarations
@@ -133,9 +134,9 @@ void menu_toggle(void)
 {
     if (ui_state == ui_state_menu)
     {
-        // Commit any uncommitted changes before exiting menu
         menu_commit_if_pending();
         ui_state = ui_state_home;
+        force_full_redraw = 1;  // Force all home lines to refresh
     }
     else
     {
@@ -195,8 +196,11 @@ void menu_task(void)
     }
 }
 
-void menu_update_display_async(void) {
-  update_display_async = 1;
+void menu_update_display_async(void)
+{
+    // Only redraw immediately if we are in the home view
+    if (ui_state == ui_state_home)
+        update_display_async = 1;
 }
 
 // ---------------------------------------------------------------------------
@@ -207,11 +211,21 @@ static void draw_home_screen(void)
     const sa818_settings_t *s = sa818_get_settings();
     char line[32];
 
-    // --- Static cache of previous text ---
     static char prev_version[32] = "";
     static char prev_mode_freq[32] = "";
     static char prev_rssi[32] = "";
     static char prev_atten[32] = "";
+
+    // --- Force full redraw if requested ---
+    if (force_full_redraw)
+    {
+        prev_version[0] = 0;
+        prev_mode_freq[0] = 0;
+        prev_rssi[0] = 0;
+        prev_atten[0] = 0;
+        lcd_clear();
+        force_full_redraw = 0;
+    }
 
     // --- Line 1: Title / version ---
     snprintf(line, sizeof(line), "SA818 v%s", s->version);
@@ -247,6 +261,7 @@ static void draw_home_screen(void)
         strncpy(prev_atten, line, sizeof(prev_atten));
     }
 }
+
 
 
 static void draw_menu_screen(void)
