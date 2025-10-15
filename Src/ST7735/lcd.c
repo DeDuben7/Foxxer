@@ -68,13 +68,7 @@ void lcd_show_bootlogo(void)
 
 		if (HAL_GetTick() - tick <= 1000)
 		  lcd_set_brightness((HAL_GetTick() - tick) * 100 / 1000);
-		else if (HAL_GetTick() - tick <= 3000)
-		{
-			sprintf((char *)&text, "%03d", ((int)HAL_GetTick() - (int)tick - 1000) / 10);
-			lcd_show_string(ST7735Ctx.Width - 30, 1, ST7735Ctx.Width, 16, 16, text);
-			ST7735_LCD_Driver.FillRect(&st7735_pObj, 0, ST7735Ctx.Height - 3, (HAL_GetTick() - tick - 1000) * ST7735Ctx.Width / 2000, 3, 0xFFFF);
-		}
-		else if (HAL_GetTick() - tick > 3000)
+		else
 			break;
 	}
 	lcd_light(0, 300);

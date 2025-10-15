@@ -42,6 +42,15 @@ extern void sa818_uart_transmit(const char* cmd);
 extern size_t sa818_uart_receive(const char* rxbuf, size_t size, uint32_t timeout);
 extern void sa818_uart_flush(void);
 
+extern void sa818_uart_tx_dma(const char *data, uint16_t len);
+extern void sa818_uart_rx_dma(uint8_t *buf, uint16_t len);
+
+extern bool sa818_uart_tx_done(void);
+extern bool sa818_uart_rx_done(void);
+extern int  sa818_uart_rx_length(void);
+
+extern void sa818_uart_abort_rx(void);
+
 #ifdef __cplusplus
 }
 #endif
