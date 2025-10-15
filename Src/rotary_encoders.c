@@ -62,9 +62,6 @@ void rotary_scan(rotary_encoder_t *enc)
     uint8_t raw_dt  = HAL_GPIO_ReadPin(enc->port_dt,  enc->pin_dt);
     uint8_t raw_sw  = HAL_GPIO_ReadPin(enc->port_sw,  enc->pin_sw);
 
-    char text[32];
-    uint16_t y = (enc == &rotaries[0]) ? 40 : 58; // line selection
-
     // --- Debounce CLK ---
     if (raw_clk != enc->stable_clk) {
         if ((now - enc->last_clk_change) >= ROT_DEBOUNCE_MS) {
@@ -108,8 +105,9 @@ void rotary_scan(rotary_encoder_t *enc)
     if (enc->stable_sw != enc->last_sw) {
         if (enc->stable_sw == GPIO_PIN_RESET) {
             enc->counter = 0;
-            //sprintf(text, "Rot%d: %ld   ", (enc == &rotaries[0]) ? 1 : 2, enc->counter);
-            //lcd_show_string(4, y, 160, 16, 16, (uint8_t *)text);
+            if(enc == &rotaries[0]) {
+            	menu_toggle();
+            }
         }
     }
     enc->last_sw = enc->stable_sw;

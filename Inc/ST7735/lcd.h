@@ -37,6 +37,11 @@ extern void lcd_set_brightness(uint32_t Brightness);
 extern uint32_t lcd_get_brightness(void);
 
 extern uint32_t lcd_get_width(void);
+extern uint32_t lcd_get_height(void);
+
+extern void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+extern void lcd_draw_filled_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color);
+
 
 extern void lcd_light(uint32_t Brightness_Dis,uint32_t time);
 extern void lcd_show_char(uint16_t x,uint16_t y,uint8_t num,uint8_t size,uint8_t mode);

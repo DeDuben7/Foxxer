@@ -100,6 +100,29 @@ uint32_t lcd_get_width(void) {
   return ST7735Ctx.Width;
 }
 
+uint32_t lcd_get_height(void) {
+  return ST7735Ctx.Height;
+}
+
+// Simple outline rectangle (1-pixel border)
+void lcd_draw_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color)
+{
+    // Top line
+    ST7735_LCD_Driver.FillRect(&st7735_pObj, x, y, w, 1, color);
+    // Bottom line
+    ST7735_LCD_Driver.FillRect(&st7735_pObj, x, y + h - 1, w, 1, color);
+    // Left line
+    ST7735_LCD_Driver.FillRect(&st7735_pObj, x, y, 1, h, color);
+    // Right line
+    ST7735_LCD_Driver.FillRect(&st7735_pObj, x + w - 1, y, 1, h, color);
+}
+
+// Filled rectangle
+void lcd_draw_filled_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint16_t color)
+{
+    ST7735_LCD_Driver.FillRect(&st7735_pObj, x, y, w, h, color);
+}
+
 void lcd_light(uint32_t Brightness_Dis,uint32_t time) {
 	uint32_t Brightness_Now;
 	uint32_t time_now;

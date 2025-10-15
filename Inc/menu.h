@@ -13,9 +13,7 @@ typedef enum {
 void menu_init(void);
 void menu_step_through(int step);
 void menu_value_step(int step);
-void menu_task(void);  // call this once per main loop iteration
-
-const char* menu_get_value(void);
-void menu_item_step_value(int step);
+void menu_toggle(void);   // toggles between home view and menu view
+void menu_task(void);     // run from main loop
 
 #endif // MENU_H
