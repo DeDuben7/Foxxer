@@ -6,6 +6,7 @@
 #include "sa818.h"
 #include "sa818_uart.h"
 #include "gpio.h"
+#include "test_tone.h"
 
 // ---------------------------------------------------------------------------
 // Configuration
@@ -279,6 +280,11 @@ void sa818_set_tail_tone(uint8_t value)
 void sa818_set_mode(sa818_mode_t mode) {
     sa818_settings.mode = mode;
     sa818_set_ptt_level(mode == SA818_MODE_TX ? LOW : HIGH);
+    if(mode == SA818_MODE_TX) {
+    	testtone_enable(true);
+    } else if (mode == SA818_MODE_RX) {
+    	testtone_enable(false);
+    }
 }
 
 void sa818_set_power_level(sa818_power_t power) {

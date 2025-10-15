@@ -7,6 +7,7 @@
 #include "rotary_encoders.h"
 #include "menu.h"
 #include "led.h"
+#include "test_tone.h"
 
 void SystemClock_Config(void);
 static void MPU_Config(void);
@@ -28,6 +29,7 @@ int main(void)
   lcd_init();
   sa818_init();
   led_init();
+  testtone_init();
 
   // rotary setup...
   lcd_show_bootlogo();
@@ -39,6 +41,7 @@ int main(void)
       menu_task();
       sa818_task();
       led_task();
+      testtone_task();
   }
 }
 
