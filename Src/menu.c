@@ -202,26 +202,34 @@ static void draw_home_screen(void)
 {
     const sa818_settings_t *s = sa818_get_settings();
     char line[32];
-    lcd_clear();
 
+    // --- Line 1: Title / version ---
+    lcd_draw_filled_rect(0, 4, lcd_get_width(), LCD_LINE_SPACING, BLACK);
     snprintf(line, sizeof(line), "SA818 v%s", s->version);
     lcd_show_string(4, 4, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
 
+    // --- Line 2: Mode and frequency ---
+    lcd_draw_filled_rect(0, 22, lcd_get_width(), LCD_LINE_SPACING, BLACK);
     snprintf(line, sizeof(line), "%s %.4f MHz",
              s->mode == SA818_MODE_RX ? "RX" : "TX",
              (s->mode == SA818_MODE_RX) ? s->rx_frequency : s->tx_frequency);
     lcd_show_string(4, 22, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
 
+    // --- Line 3: RSSI ---
+    lcd_draw_filled_rect(0, 40, lcd_get_width(), LCD_LINE_SPACING, BLACK);
     snprintf(line, sizeof(line), "RSSI: %d dBm", s->rssi);
     lcd_show_string(4, 40, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
 
+    // --- Line 4: Attenuator ---
+    lcd_draw_filled_rect(0, 58, lcd_get_width(), LCD_LINE_SPACING, BLACK);
     snprintf(line, sizeof(line), "Atten: %.1f dB", attenuator_get());
     lcd_show_string(4, 58, lcd_get_width(), 16, LCD_FONT_SIZE, (uint8_t*)line);
 }
 
 static void draw_menu_screen(void)
 {
-    lcd_clear();
+    // Clear scrollbar area only (right edge)
+    lcd_draw_filled_rect(lcd_get_width() - 4, 0, 4, lcd_get_height(), BLACK);
 
     for (uint8_t i = 0; i < MENU_VISIBLE_LINES; i++) {
         uint8_t index = top_menu_index + i;
@@ -231,22 +239,23 @@ static void draw_menu_screen(void)
         uint16_t y = 4 + i * LCD_LINE_SPACING;
         uint8_t text[32];
 
-        uint16_t item_color = WHITE;
-        uint16_t bg_color   = BLACK;
+        bool selected = (index == current_menu);
 
-        if (index == current_menu) {
-            bg_color = BLUE;
-            item_color = WHITE;
-            lcd_draw_filled_rect(0, y - 2, lcd_get_width(), LCD_LINE_SPACING, bg_color);
-        }
+        uint16_t bg_color   = selected ? BLUE : BLACK;
+        uint16_t text_color = WHITE;
 
-        POINT_COLOR = item_color;
+        // Clear and fill line background
+        lcd_draw_filled_rect(0, y - 2, lcd_get_width(), LCD_LINE_SPACING, bg_color);
+
+        // Draw menu name
+        POINT_COLOR = text_color;
         BACK_COLOR  = bg_color;
         snprintf((char*)text, sizeof(text), "%s", menu_table[index].name);
-        lcd_show_string(4, y, lcd_get_width() - 20, 16, LCD_FONT_SIZE, text);
+        lcd_show_string(4, y, 96, 16, LCD_FONT_SIZE, text);
 
+        // Draw menu value
         snprintf((char*)text, sizeof(text), "%s", menu_table[index].get_value());
-        lcd_show_string(100, y, lcd_get_width(), 16, LCD_FONT_SIZE, text);
+        lcd_show_string(100, y, lcd_get_width() - 100, 16, LCD_FONT_SIZE, text);
     }
 
     draw_scrollbar(top_menu_index, menu_item_count, MENU_VISIBLE_LINES);
