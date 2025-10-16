@@ -1,26 +1,15 @@
 /**
  ******************************************************************************
  * @file      spi.h
- * @brief     init and control functions for SPI4
+ * @brief     SPI4 driver with DMA support for LCD display
  * @version   version
  * @author    R. van Renswoude
  * @date      2025
  ******************************************************************************
- * @details detailed description
+ * @details   Provides blocking and DMA-based SPI transmit functions for LCD.
  ******************************************************************************
- * @attention
- *
- * <h2><center>&copy; Copyright (c) 2025 Ruben van Renswoude.
- * All rights reserved.</center></h2>
- *
- ******************************************************************************
- */
-/**
- * @addtogroup  Peripherals
- * @{
  */
 
-/* Define to prevent recursive inclusion -------------------------------------*/
 #ifndef __SPI_H
 #define __SPI_H
 
@@ -28,19 +17,39 @@
 extern "C" {
 #endif
 
-/* Includes -------------------------------------------------------------------*/
-
 #include "main.h"
+#include <stdbool.h>
 
-/* Defines -------------------------------------------------------------------*/
+/* -------------------------------------------------------------------------- */
+/* Public API                                                                 */
+/* -------------------------------------------------------------------------- */
 
-/* Typedefs -------------------------------------------------------------------*/
-
-/* Functions -------------------------------------------------------------------*/
-
+/**
+ * @brief Initialize SPI4 peripheral and its DMA channel.
+ */
 void display_spi_init(void);
+
+/**
+ * @brief Transmit data over SPI (blocking).
+ */
 uint32_t display_spi_transmit(const uint8_t *data, uint16_t size, uint32_t timeout);
+
+/**
+ * @brief Receive data over SPI (blocking).
+ */
 uint32_t display_spi_receive(uint8_t *data, uint16_t size, uint32_t timeout);
+
+/**
+ * @brief Start non-blocking DMA transmit.
+ * @return HAL_OK if started, HAL_BUSY if ongoing, HAL_ERROR on failure.
+ */
+HAL_StatusTypeDef display_spi_transmit_dma(const uint8_t *data, uint16_t size);
+
+/**
+ * @brief Check if SPI TX DMA is currently busy.
+ * @return true if transfer still ongoing, false if idle.
+ */
+bool display_spi_is_tx_busy(void);
 
 #ifdef __cplusplus
 }

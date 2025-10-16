@@ -38,6 +38,7 @@
 extern DMA_HandleTypeDef hdma_usart3_rx;
 extern DMA_HandleTypeDef hdma_usart3_tx;
 extern UART_HandleTypeDef sa818_uart_handle;
+extern DMA_HandleTypeDef hdma_spi4_tx;  // Declare SPI4 DMA handle
 
 
 /******************************************************************************/
@@ -166,6 +167,14 @@ void DMA1_Stream2_IRQHandler(void)
 void DMA1_Stream3_IRQHandler(void)
 {
   HAL_DMA_IRQHandler(&hdma_usart3_tx);
+}
+
+/**
+  * @brief This function handles DMA1 stream4 global interrupt (SPI4 TX DMA).
+  */
+void DMA1_Stream4_IRQHandler(void)
+{
+  HAL_DMA_IRQHandler(&hdma_spi4_tx);
 }
 
 /**

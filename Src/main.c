@@ -44,6 +44,7 @@ int main(void)
       sa818_task();
       led_task();
       testtone_task();
+      lcd_task();
   }
 }
 
@@ -141,15 +142,24 @@ static void MX_DMA_Init(void)
   /* DMA controller clock enable */
   __HAL_RCC_DMA1_CLK_ENABLE();
 
-  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 5, 0);  // USART3_RX (High priority)
+  HAL_NVIC_SetPriority(DMA1_Stream2_IRQn, 4, 0);  // USART3_RX (High priority)
   HAL_NVIC_EnableIRQ(DMA1_Stream2_IRQn);
 
-  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 7, 0);  // USART3_TX (Lower priority)
+  HAL_NVIC_SetPriority(DMA1_Stream3_IRQn, 5, 0);  // USART3_TX (Lower priority)
   HAL_NVIC_EnableIRQ(DMA1_Stream3_IRQn);
 
   HAL_NVIC_SetPriority(USART3_IRQn, 6, 0);        // UART IDLE interrupt in between
   HAL_NVIC_EnableIRQ(USART3_IRQn);
+
+  HAL_NVIC_SetPriority(DMA1_Stream4_IRQn, 7, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream4_IRQn);
 }
+
+void HAL_MspInit(void)
+{
+  __HAL_RCC_SYSCFG_CLK_ENABLE();
+}
+
 
 /**
   * @brief  This function is executed in case of error occurrence.

@@ -1,15 +1,15 @@
 #include <string.h>
+#include <stdbool.h>
 
 #include "stm32h7xx_hal.h"
 
 #include "lcd_brightness_timer.h"
 #include "spi.h"
 #include "gpio.h"
-
 #include "font.h"
 #include "lcd.h"
-
 #include "board.h"
+#include "led.h"
 
 //LCD_RST
 #define LCD_RST_SET     
@@ -21,11 +21,26 @@
 #define LCD_CS_SET      HAL_GPIO_WritePin(LCD_CS_GPIO_Port,LCD_CS_Pin,GPIO_PIN_SET)
 #define LCD_CS_RESET    HAL_GPIO_WritePin(LCD_CS_GPIO_Port,LCD_CS_Pin,GPIO_PIN_RESET)
 
+#define LCD_DMA_QUEUE_SIZE   8  // tune as needed
+#define LCD_DMA_MAX_PAYLOAD  512  // max data per DMA packet (fits typical ST7735 frame chunks)
+
+typedef struct {
+    uint8_t data[LCD_DMA_MAX_PAYLOAD];
+    uint16_t length;
+    bool rs_data;      // true = data, false = command
+    bool release_cs;   // true = deassert CS after this transfer
+} lcd_dma_cmd_t;
+
 static int32_t lcd_gettick(void);
 static int32_t lcd_writereg(uint8_t reg,uint8_t* pdata,uint32_t length);
 static int32_t lcd_readreg(uint8_t reg,uint8_t* pdata);
 static int32_t lcd_senddata(uint8_t* pdata,uint32_t length);
 static int32_t lcd_recvdata(uint8_t* pdata,uint32_t length);
+
+static inline bool lcd_dma_queue_full(void);
+static inline bool lcd_dma_queue_empty(void);
+static void lcd_dma_enqueue(const uint8_t *data, uint16_t len, bool rs_data, bool release_cs);
+static void lcd_dma_start_next(void);
 
 ST7735_IO_t st7735_pIO = {
 	NULL,
@@ -41,6 +56,10 @@ ST7735_IO_t st7735_pIO = {
 ST7735_Object_t st7735_pObj;
 uint32_t st7735_id;
 
+static lcd_dma_cmd_t lcd_dma_queue[LCD_DMA_QUEUE_SIZE];
+static volatile uint8_t lcd_q_head = 0;
+static volatile uint8_t lcd_q_tail = 0;
+
 void lcd_init(void) {
   lcd_brightness_timer_init();
   lcd_brightness_timer_start();
@@ -54,6 +73,24 @@ void lcd_init(void) {
   ST7735_RegisterBusIO(&st7735_pObj,&st7735_pIO);
   ST7735_LCD_Driver.Init(&st7735_pObj,ST7735_FORMAT_RBG565,&ST7735Ctx);
   ST7735_LCD_Driver.ReadID(&st7735_pObj,&st7735_id);
+}
+
+void lcd_task(void)
+{
+    if (!display_spi_is_tx_busy() && !lcd_dma_queue_empty())
+    {
+        const lcd_dma_cmd_t *cmd = &lcd_dma_queue[lcd_q_tail];
+
+        // If the finished transfer requested CS release, do it now
+        if (cmd->release_cs)
+            LCD_CS_SET;
+
+        // Move to next queued transfer
+        lcd_q_tail = (lcd_q_tail + 1) % LCD_DMA_QUEUE_SIZE;
+
+        // Start the next DMA transfer if any remain
+        lcd_dma_start_next();
+    }
 }
 
 void lcd_show_bootlogo(void)
@@ -284,65 +321,107 @@ static int32_t lcd_gettick(void)
 	return HAL_GetTick();
 }
 
-static int32_t lcd_writereg(uint8_t reg,uint8_t* pdata,uint32_t length)
+static int32_t lcd_writereg(uint8_t reg, uint8_t* pdata, uint32_t length)
 {
-	int32_t result;
-	LCD_CS_RESET;
-	LCD_RS_RESET;
-	result = display_spi_transmit(&reg, 1, 100);
-	LCD_RS_SET;
-	if(length > 0)
-		result += display_spi_transmit(pdata, length, 500);
-	LCD_CS_SET;
-	if(result>0){
-		result = -1;}
-	else{
-		result = 0;}
-	return result;
+    uint8_t packet[LCD_DMA_MAX_PAYLOAD];
+    uint16_t pos = 0;
+
+    if (1 + length > LCD_DMA_MAX_PAYLOAD)
+        return -1;
+
+    packet[pos++] = reg;
+    if (pdata && length > 0) {
+        memcpy(&packet[pos], pdata, length);
+        pos += length;
+    }
+
+    // Queue command byte (RS low, keep CS active)
+    lcd_dma_enqueue(packet, 1, false, (length == 0));
+
+    // Queue data bytes if any (RS high, release CS afterwards)
+    if (length > 0)
+        lcd_dma_enqueue(&packet[1], length, true, true);
+
+    return 0;
 }
 
-static int32_t lcd_readreg(uint8_t reg,uint8_t* pdata)
+static int32_t lcd_readreg(uint8_t reg, uint8_t* pdata)
 {
-	int32_t result;
-	LCD_CS_RESET;
-	LCD_RS_RESET;
-	
-	result = display_spi_transmit(&reg, 1, 100);
-	LCD_RS_SET;
-	result += display_spi_receive(pdata, 1, 500);
-	LCD_CS_SET;
-	if(result>0){
-		result = -1;}
-	else{
-		result = 0;}
-	return result;
+    // Reads rarely used — keep it blocking for simplicity
+    LCD_CS_RESET;
+    LCD_RS_RESET;
+    display_spi_transmit(&reg, 1, 100);
+    LCD_RS_SET;
+    display_spi_receive(pdata, 1, 100);
+    LCD_CS_SET;
+    return 0;
 }
 
-static int32_t lcd_senddata(uint8_t* pdata,uint32_t length)
+static int32_t lcd_senddata(uint8_t* pdata, uint32_t length)
 {
-	int32_t result;
-	LCD_CS_RESET;
-	//LCD_RS_SET;
-	result =display_spi_transmit(pdata, length, 100);
-	LCD_CS_SET;
-	if(result>0){
-		result = -1;}
-	else{
-		result = 0;}
-	return result;
+    if (!pdata || length == 0)
+        return -1;
+
+    lcd_dma_enqueue(pdata, length, true, true);
+    return 0;
 }
 
-static int32_t lcd_recvdata(uint8_t* pdata,uint32_t length)
+static int32_t lcd_recvdata(uint8_t* pdata, uint32_t length)
 {
-	int32_t result;
-	LCD_CS_RESET;
-	//LCD_RS_SET;
-	result = display_spi_receive(pdata, length, 500);
-	LCD_CS_SET;
-	if(result>0){
-		result = -1;}
-	else{
-		result = 0;}
-	return result;
+    // Keep blocking receive for now
+    LCD_CS_RESET;
+    display_spi_receive(pdata, length, 100);
+    LCD_CS_SET;
+    return 0;
 }
 
+static inline bool lcd_dma_queue_full(void)
+{
+    return ((lcd_q_head + 1) % LCD_DMA_QUEUE_SIZE) == lcd_q_tail;
+}
+
+static inline bool lcd_dma_queue_empty(void)
+{
+    return (lcd_q_head == lcd_q_tail);
+}
+
+static void lcd_dma_enqueue(const uint8_t *data, uint16_t len, bool rs_data, bool release_cs)
+{
+    if (len == 0 || data == NULL || len > LCD_DMA_MAX_PAYLOAD)
+        return;
+
+    if (lcd_dma_queue_full()) {
+        led_set_interval(LED_ERROR_INTERVAL);
+        return;
+    }
+
+    memcpy(lcd_dma_queue[lcd_q_head].data, data, len);
+    lcd_dma_queue[lcd_q_head].length = len;
+    lcd_dma_queue[lcd_q_head].rs_data = rs_data;
+    lcd_dma_queue[lcd_q_head].release_cs = release_cs;
+
+    lcd_q_head = (lcd_q_head + 1) % LCD_DMA_QUEUE_SIZE;
+
+    if (!display_spi_is_tx_busy())
+        lcd_dma_start_next();
+}
+
+static void lcd_dma_start_next(void)
+{
+    if (display_spi_is_tx_busy() || lcd_dma_queue_empty())
+        return;
+
+    const lcd_dma_cmd_t *cmd = &lcd_dma_queue[lcd_q_tail];
+
+    // Set RS line according to this transfer
+    if (cmd->rs_data)
+        LCD_RS_SET;
+    else
+        LCD_RS_RESET;
+
+    // Ensure CS is low before starting
+    LCD_CS_RESET;
+
+    if (display_spi_transmit_dma(cmd->data, cmd->length) != HAL_OK)
+        led_set_interval(LED_ERROR_INTERVAL);
+}

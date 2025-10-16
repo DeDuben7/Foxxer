@@ -14,7 +14,7 @@
 // ---------------------------------------------------------------------------
 // Internal state
 // ---------------------------------------------------------------------------
-static uint32_t led_interval_ms = 500;  // default blink interval
+static uint32_t led_interval_ms = LED_NORMAL_INTERVAL;  // default blink interval
 static uint32_t led_next_toggle = 0;
 static bool led_state = false;
 static bool led_blink_enabled = true;
