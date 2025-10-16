@@ -17,6 +17,9 @@ extern "C" {
 #include <stdbool.h>
 #include "stm32h7xx_hal.h"
 
+#define LED_NORMAL_INTERVAL (500)
+#define LED_ERROR_INTERVAL (100)
+
 /**
  * @brief Initialize LED hardware (calls board_led_init internally)
  */
