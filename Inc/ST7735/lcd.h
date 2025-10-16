@@ -46,6 +46,8 @@ extern void lcd_draw_filled_rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h,
 extern void lcd_light(uint32_t Brightness_Dis,uint32_t time);
 extern void lcd_show_char(uint16_t x,uint16_t y,uint8_t num,uint8_t size,uint8_t mode);
 extern void lcd_show_string(uint16_t x,uint16_t y,uint16_t width,uint16_t height,uint8_t size,uint8_t *p);
+extern void lcd_show_string_centered(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t size, uint8_t *p);
+
 extern ST7735_Ctx_t ST7735Ctx;
 
 #endif  

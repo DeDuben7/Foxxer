@@ -1,3 +1,5 @@
+#include <string.h>
+
 #include "stm32h7xx_hal.h"
 
 #include "lcd_brightness_timer.h"
@@ -250,6 +252,31 @@ void lcd_show_string(uint16_t x,uint16_t y,uint16_t width,uint16_t height,uint8_
         x+=size/2;
         p++;
     }  
+}
+
+void lcd_show_string_centered(uint16_t x, uint16_t y, uint16_t width, uint16_t height, uint8_t size, uint8_t *p)
+{
+    if (!p || *p == 0) return;
+
+    uint16_t text_len = strlen((char*)p);
+    uint16_t char_width = size / 2;
+    uint16_t text_width = text_len * char_width;
+
+    // --- Horizontal centering ---
+    uint16_t start_x;
+    if (width > text_width)
+        start_x = x + (width - text_width) / 2;
+    else
+        start_x = x;
+
+    // --- Vertical centering ---
+    uint16_t start_y;
+    if (height > size)
+        start_y = y + (height - size) / 2;
+    else
+        start_y = y;
+
+    lcd_show_string(start_x, start_y, width, height, size, p);
 }
 
 static int32_t lcd_gettick(void)
