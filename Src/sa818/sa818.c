@@ -8,12 +8,14 @@
 #include "gpio.h"
 #include "test_tone.h"
 #include "menu.h"
+#include "error_window.h"
 
 // ---------------------------------------------------------------------------
 // Configuration
 // ---------------------------------------------------------------------------
 #define CRLF "\r\n"
 #define SA818_RSSI_POLL_INTERVAL_MS   10
+#define SA818_HEALTH_CHECK_INTERVAL_MS  2000   // Every 2 seconds
 #define SA818_CMD_TIMEOUT_MS          300
 // #define DEBUG_SA818  // Uncomment for debug prints
 
@@ -45,7 +47,9 @@ static sa818_cmd_request_t sa818_pending;  // single queued command
 
 static uint8_t sa818_rxbuf[128];
 static uint32_t sa818_deadline = 0;
+
 static uint32_t last_rssi_poll = 0;
+static uint32_t last_handshake_time = 0;
 
 // ---------------------------------------------------------------------------
 // Settings
@@ -165,7 +169,15 @@ void sa818_task(void)
             break;
         }
 
-        // Otherwise handle periodic RSSI polling
+        // --- Periodic health check ---
+        if (now - last_handshake_time >= SA818_HEALTH_CHECK_INTERVAL_MS)
+        {
+            last_handshake_time = now;
+            sa818_start_cmd("AT+DMOCONNECT\r\n", "+DMOCONNECT:0", SA818_CMD_TIMEOUT_MS);
+            break;
+        }
+
+        // --- Periodic RSSI polling ---
         if (sa818_settings.mode == SA818_MODE_RX &&
             now - last_rssi_poll >= SA818_RSSI_POLL_INTERVAL_MS) {
             sa818_start_cmd("RSSI?\r\n", "RSSI=", SA818_CMD_TIMEOUT_MS);
@@ -186,6 +198,12 @@ void sa818_task(void)
         } else if (now > sa818_deadline) {
             sa818_uart_abort_rx();
             sa818_state = SA818_CMD_IDLE;
+
+            if (strlen(sa818_pending.cmd) > 0) {
+				char msg[64];
+				snprintf(msg, sizeof(msg), "SA818 Timeout:\n%s", sa818_pending.cmd);
+				ERROR_WINDOW_SHOW(msg);
+			}
         }
         break;
 
@@ -195,6 +213,7 @@ void sa818_task(void)
         break;
     }
 }
+
 
 const sa818_settings_t* sa818_get_settings(void) {
     return &sa818_settings;
@@ -448,32 +467,87 @@ static void sa818_process_response(void)
     }
 
     sa818_rxbuf[len] = 0;
+    const char *resp = (char*)sa818_rxbuf;
 
-    // --- Parse RSSI ---
-    if (strstr((char*)sa818_rxbuf, "RSSI=")) {
-        char *eq = strchr((char*)sa818_rxbuf, '=');
-        if (eq) {
-            sa818_settings.rssi = (uint8_t)atoi(eq + 1);
-            menu_update_display_async(); // make sure home window is updated
+    // --- HANDSHAKE ---
+    if (strstr(resp, "AT+DMOCONNECT") || strstr(sa818_pending.cmd, "AT+DMOCONNECT")) {
+        if (!strstr(resp, "+DMOCONNECT:0")) {
+            ERROR_WINDOW_SHOW("SA818 Handshake Failed");
         }
+        return;
     }
 
-    // --- Parse S= (scan result) ---
-    if (strstr((char*)sa818_rxbuf, "S=")) {
-        char *eq = strchr((char*)sa818_rxbuf, '=');
+    // --- SET GROUP ---
+    if (strstr(sa818_pending.cmd, "AT+DMOSETGROUP")) {
+        if (!strstr(resp, "+DMOSETGROUP:0")) {
+            ERROR_WINDOW_SHOW("SA818 Group Set Failed");
+        }
+        return;
+    }
+
+    // --- SET VOLUME ---
+    if (strstr(sa818_pending.cmd, "AT+DMOSETVOLUME")) {
+        if (!strstr(resp, "+DMOSETVOLUME:0")) {
+            ERROR_WINDOW_SHOW("SA818 Volume Set Failed");
+        }
+        return;
+    }
+
+    // --- SET FILTER ---
+    if (strstr(sa818_pending.cmd, "AT+SETFILTER")) {
+        if (!strstr(resp, "+DMOSETFILTER:0")) {
+            ERROR_WINDOW_SHOW("SA818 Filter Set Failed");
+        }
+        return;
+    }
+
+    // --- SET TAIL ---
+    if (strstr(sa818_pending.cmd, "AT+SETTAIL")) {
+        if (!strstr(resp, "+DMOSETTAIL:0")) {
+            ERROR_WINDOW_SHOW("SA818 Tail Set Failed");
+        }
+        return;
+    }
+
+    // --- SCAN RESULT ---
+    if (strstr(resp, "S=")) {
+        char *eq = strchr(resp, '=');
         if (eq) {
             uint8_t s = (uint8_t)atoi(eq + 1);
             sa818_settings.signal_present = (s == 0); // S=0 means signal
+        } else {
+            ERROR_WINDOW_SHOW("SA818 Scan Parse Error");
         }
+        return;
     }
 
-    // --- Parse version ---
-    if (strstr((char*)sa818_rxbuf, "+VERSION:")) {
-        char *ver = strstr((char*)sa818_rxbuf, "+VERSION:");
+    // --- RSSI ---
+    if (strstr(resp, "RSSI=")) {
+        char *eq = strchr(resp, '=');
+        if (eq) {
+            sa818_settings.rssi = (uint8_t)atoi(eq + 1);
+            menu_update_display_async();
+        } else {
+            ERROR_WINDOW_SHOW("SA818 RSSI Parse Error");
+        }
+        return;
+    }
+
+    // --- VERSION ---
+    if (strstr(resp, "+VERSION:")) {
+        char *ver = strstr(resp, "+VERSION:");
         if (ver) {
             strncpy(sa818_settings.version, ver + 9, sizeof(sa818_settings.version) - 1);
             sa818_settings.version[sizeof(sa818_settings.version) - 1] = '\0';
+        } else {
+            ERROR_WINDOW_SHOW("SA818 Version Parse Error");
         }
+        return;
+    }
+
+    // --- FALLBACK / UNKNOWN ---
+    if (len > 0 && !strstr(resp, "0")) {
+        ERROR_WINDOW_SHOW("SA818 Unknown Response");
     }
 }
 
