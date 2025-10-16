@@ -54,4 +54,6 @@ Mkfile.old
 # debug information files
 *.dwo
 
-/Foxxer
+/CubeMXGeneratedCode/Debug
+/CubeMXGeneratedCode/.settings
+/Debug
