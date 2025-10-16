@@ -30,6 +30,7 @@ extern uint16_t POINT_COLOR;
 extern uint16_t BACK_COLOR;
 
 extern void lcd_init(void);
+extern void lcd_task(void);
 extern void lcd_show_bootlogo(void);
 extern void lcd_clear(void);
 
