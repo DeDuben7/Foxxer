@@ -148,6 +148,9 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
         }
 
         __HAL_LINKDMA(hspi, hdmatx, hdma_spi4_tx);
+
+        HAL_NVIC_SetPriority(SPI4_IRQn, 0, 0);
+		HAL_NVIC_EnableIRQ(SPI4_IRQn);
     }
 }
 
@@ -158,5 +161,6 @@ void HAL_SPI_MspDeInit(SPI_HandleTypeDef *hspi)
         __HAL_RCC_SPI4_CLK_DISABLE();
         HAL_GPIO_DeInit(GPIOE, GPIO_PIN_12 | GPIO_PIN_14);
         HAL_DMA_DeInit(&hdma_spi4_tx);
+        HAL_NVIC_DisableIRQ(SPI4_IRQn);
     }
 }
