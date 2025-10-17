@@ -29,7 +29,7 @@ typedef enum {
 } ui_state_t;
 
 static ui_state_t ui_state = ui_state_home;
-static menu_item_t current_menu = menu_item_bandwidth;
+static menu_item_t current_menu = menu_item_attenuator;
 static uint8_t top_menu_index = 0;
 
 static uint32_t last_value_change_time = 0;
@@ -101,7 +101,7 @@ typedef struct {
 } menu_descriptor_t;
 
 static const menu_descriptor_t menu_table[menu_item_count] = {
-    { "Attenuator", menu_atten_get_value, menu_atten_step_value }, // NEW
+    { "Attenuator", menu_atten_get_value,     menu_atten_step_value     },
     { "Bandwidth",  menu_bandwidth_get_value, menu_bandwidth_step_value },
     { "TX Freq",    menu_tx_freq_get_value,   menu_tx_freq_step_value   },
     { "RX Freq",    menu_rx_freq_get_value,   menu_rx_freq_step_value   },
@@ -122,7 +122,7 @@ static const menu_descriptor_t menu_table[menu_item_count] = {
 // ---------------------------------------------------------------------------
 void menu_init(void)
 {
-    current_menu = menu_item_bandwidth;
+    current_menu = menu_item_attenuator;
     top_menu_index = 0;
     last_value_change_time = 0;
     local_value = 0;
@@ -215,6 +215,8 @@ static void draw_home_screen(void)
     static char prev_mode_freq[32] = "";
     static char prev_rssi[32] = "";
     static char prev_atten[32] = "";
+
+    BACK_COLOR = BLACK;
 
     // --- Force full redraw if requested ---
     if (force_full_redraw)
@@ -350,8 +352,8 @@ static const char* menu_atten_get_value(void)
 static void menu_atten_step_value(int step)
 {
     float val = attenuator_get() + (step * 0.5f);  // 0.5 dB per tick
-    if (val < ATTENUATOR_MIN_DB) val = ATTENUATOR_MIN_DB;
-    if (val > ATTENUATOR_MAX_DB) val = ATTENUATOR_MAX_DB;
+    if (val < ATTENUATOR_MIN_DB) val = ATTENUATOR_MAX_DB;
+    if (val > ATTENUATOR_MAX_DB) val = ATTENUATOR_MIN_DB;
     attenuator_set(val);
 }
 
