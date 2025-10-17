@@ -195,15 +195,21 @@ void sa818_task(void)
     case SA818_CMD_RX_WAIT:
         if (sa818_uart_rx_done()) {
             sa818_state = SA818_CMD_PROCESS;
-        } else if (now > sa818_deadline) {
+        }
+        else if (now > sa818_deadline) {
             sa818_uart_abort_rx();
             sa818_state = SA818_CMD_IDLE;
 
+            // --- Timeout handling ---
             if (strlen(sa818_pending.cmd) > 0) {
-				char msg[64];
-				snprintf(msg, sizeof(msg), "SA818 Timeout:\n%s", sa818_pending.cmd);
-				ERROR_WINDOW_SHOW(msg);
-			}
+                char msg[64];
+                snprintf(msg, sizeof(msg), "SA818 Timeout:\n%s", sa818_pending.cmd);
+                ERROR_WINDOW_SHOW(msg);
+            }
+
+            // Clear pending command so we don’t parse the next response incorrectly
+            memset(&sa818_pending, 0, sizeof(sa818_pending));
+            sa818_pending.active = false;
         }
         break;
 
