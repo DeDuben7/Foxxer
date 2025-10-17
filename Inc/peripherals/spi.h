@@ -1,12 +1,13 @@
 /**
  ******************************************************************************
  * @file      spi.h
- * @brief     SPI4 driver with DMA support for LCD display
- * @version   version
+ * @brief     SPI4 driver with DMA queue and GPIO control for LCD display
+ * @version   2.0
  * @author    R. van Renswoude
  * @date      2025
  ******************************************************************************
- * @details   Provides blocking and DMA-based SPI transmit functions for LCD.
+ * @details   Provides both blocking and queued DMA SPI transfers.
+ *            Handles CS/RS automatically for LCD operations.
  ******************************************************************************
  */
 
@@ -20,36 +21,30 @@ extern "C" {
 #include "main.h"
 #include <stdbool.h>
 
+#define SPI_DMA_MAX_PAYLOAD  400
+
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
 /* -------------------------------------------------------------------------- */
 
-/**
- * @brief Initialize SPI4 peripheral and its DMA channel.
- */
 void display_spi_init(void);
 
-/**
- * @brief Transmit data over SPI (blocking).
- */
+/* Blocking SPI transfers */
 uint32_t display_spi_transmit(const uint8_t *data, uint16_t size, uint32_t timeout);
-
-/**
- * @brief Receive data over SPI (blocking).
- */
 uint32_t display_spi_receive(uint8_t *data, uint16_t size, uint32_t timeout);
 
-/**
- * @brief Start non-blocking DMA transmit.
- * @return HAL_OK if started, HAL_BUSY if ongoing, HAL_ERROR on failure.
- */
-HAL_StatusTypeDef display_spi_transmit_dma(const uint8_t *data, uint16_t size);
+void display_spi_rs_set(void);
+void display_spi_rs_reset(void);
+void display_spi_cs_set(void);
+void display_spi_cs_reset(void);
 
-/**
- * @brief Check if SPI TX DMA is currently busy.
- * @return true if transfer still ongoing, false if idle.
- */
+
+/* Queued DMA transmit */
+void display_spi_enqueue(const uint8_t *data, uint16_t size, bool rs_data, bool release_cs);
+
+/* Helpers */
 bool display_spi_is_tx_busy(void);
+void display_spi_flush_blocking(void);
 
 #ifdef __cplusplus
 }

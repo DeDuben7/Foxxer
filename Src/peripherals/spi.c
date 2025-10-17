@@ -1,26 +1,50 @@
 /**
  ******************************************************************************
  * @file      spi.c
- * @brief     SPI4 driver with DMA support for LCD display
- * @version   version
+ * @brief     SPI4 driver with DMA queue and GPIO control for LCD display
+ * @version   2.0
  * @author    R. van Renswoude
  * @date      2025
  ******************************************************************************
  */
 
-#include <stdbool.h>
+#include <string.h>
 
 #include "stm32h7xx_hal.h"
 #include "spi.h"
+#include "led.h"
+#include "gpio.h"
 
 /* -------------------------------------------------------------------------- */
-/* Private variables                                                          */
+/* Private Configuration                                                      */
+/* -------------------------------------------------------------------------- */
+
+#define SPI_DMA_QUEUE_SIZE   800
+
+typedef struct {
+    uint8_t data[SPI_DMA_MAX_PAYLOAD];
+    uint16_t length;
+    bool rs_data;
+    bool release_cs;
+} spi_dma_cmd_t;
+
+/* -------------------------------------------------------------------------- */
+/* Private Variables                                                          */
 /* -------------------------------------------------------------------------- */
 
 SPI_HandleTypeDef display_spi_handle;
 DMA_HandleTypeDef hdma_spi4_tx;
 
-static volatile bool spi_tx_busy = false;
+static spi_dma_cmd_t spi_queue[SPI_DMA_QUEUE_SIZE];
+static volatile uint8_t spi_q_head = 0;
+static volatile uint8_t spi_q_tail = 0;
+static volatile bool spi_dma_active = false;
+
+/* -------------------------------------------------------------------------- */
+/* Internal Functions                                                         */
+/* -------------------------------------------------------------------------- */
+
+static void start_next_spi_dma(void);
 
 /* -------------------------------------------------------------------------- */
 /* Public API                                                                 */
@@ -28,7 +52,7 @@ static volatile bool spi_tx_busy = false;
 
 void display_spi_init(void)
 {
-    /* SPI4 parameter configuration */
+    /* SPI4 configuration */
     display_spi_handle.Instance = SPI4;
     display_spi_handle.Init.Mode = SPI_MODE_MASTER;
     display_spi_handle.Init.Direction = SPI_DIRECTION_1LINE;
@@ -47,43 +71,144 @@ void display_spi_init(void)
 
     if (HAL_SPI_Init(&display_spi_handle) != HAL_OK)
     {
-        //Error_Handler();
+        // Error_Handler();
     }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Blocking SPI transfers                                                     */
-/* -------------------------------------------------------------------------- */
-
+/* Blocking SPI transmit */
 uint32_t display_spi_transmit(const uint8_t *data, uint16_t size, uint32_t timeout)
 {
     return HAL_SPI_Transmit(&display_spi_handle, (uint8_t *)data, size, timeout);
 }
 
+/* Blocking SPI receive */
 uint32_t display_spi_receive(uint8_t *data, uint16_t size, uint32_t timeout)
 {
     return HAL_SPI_Receive(&display_spi_handle, data, size, timeout);
 }
 
-/* -------------------------------------------------------------------------- */
-/* DMA-based non-blocking transmit                                            */
-/* -------------------------------------------------------------------------- */
-
-HAL_StatusTypeDef display_spi_transmit_dma(const uint8_t *data, uint16_t size)
-{
-    if (data == NULL || size == 0)
-        return HAL_ERROR;
-
-    if (spi_tx_busy)
-        return HAL_BUSY;
-
-    spi_tx_busy = true;
-    return HAL_SPI_Transmit_DMA(&display_spi_handle, (uint8_t *)data, size);
+void display_spi_rs_set(void) {
+  HAL_GPIO_WritePin(LCD_WR_RS_GPIO_Port, LCD_WR_RS_Pin, GPIO_PIN_SET);
 }
 
+void display_spi_rs_reset(void) {
+  HAL_GPIO_WritePin(LCD_WR_RS_GPIO_Port, LCD_WR_RS_Pin, GPIO_PIN_RESET);
+}
+
+void display_spi_cs_set(void) {
+  HAL_GPIO_WritePin(LCD_CS_GPIO_Port, LCD_CS_Pin, GPIO_PIN_SET);
+}
+
+void display_spi_cs_reset(void) {
+  HAL_GPIO_WritePin(LCD_CS_GPIO_Port, LCD_CS_Pin, GPIO_PIN_RESET);
+}
+
+/* -------------------------------------------------------------------------- */
+/* DMA Queue Interface                                                        */
+/* -------------------------------------------------------------------------- */
+
+void display_spi_enqueue(const uint8_t *data, uint16_t size, bool rs_data, bool release_cs)
+{
+    if (data == NULL || size == 0 || size > SPI_DMA_MAX_PAYLOAD)
+        return;
+
+    // --- Try to combine with previous entry if possible ---
+    if (spi_q_head != spi_q_tail)  // queue not empty
+    {
+        uint8_t last_index = (spi_q_head + SPI_DMA_QUEUE_SIZE - 1) % SPI_DMA_QUEUE_SIZE;
+        spi_dma_cmd_t *last = &spi_queue[last_index];
+
+        // Check if same mode and enough room to append
+        if (last->rs_data == rs_data &&
+            last->release_cs == release_cs &&
+            (last->length + size) <= SPI_DMA_MAX_PAYLOAD)
+        {
+            memcpy(&last->data[last->length], data, size);
+            last->length += size;
+            return; // successfully merged, done
+        }
+    }
+
+    // --- Normal path: push new queue entry ---
+    uint8_t next = (spi_q_head + 1) % SPI_DMA_QUEUE_SIZE;
+
+    // Handle full queue: flush one entry (blocking)
+    if (next == spi_q_tail)
+        display_spi_flush_blocking();
+
+    memcpy(spi_queue[spi_q_head].data, data, size);
+    spi_queue[spi_q_head].length     = size;
+    spi_queue[spi_q_head].rs_data    = rs_data;
+    spi_queue[spi_q_head].release_cs = release_cs;
+    spi_q_head = next;
+
+    // Start next DMA transfer if idle
+    if (!spi_dma_active)
+        start_next_spi_dma();
+}
+
+
+/* Wait until SPI is idle and flush one pending transfer */
+void display_spi_flush_blocking(void)
+{
+    while (spi_dma_active) { }
+
+    if (spi_q_head == spi_q_tail)
+        return;
+
+    spi_dma_cmd_t *cmd = &spi_queue[spi_q_tail];
+
+    /* GPIO setup */
+    if (cmd->rs_data)
+      display_spi_rs_set();
+    else
+      display_spi_rs_reset();
+
+    display_spi_cs_reset();
+
+    HAL_StatusTypeDef status = HAL_SPI_Transmit(&display_spi_handle, cmd->data, cmd->length, HAL_MAX_DELAY);
+
+    if (cmd->release_cs)
+       display_spi_cs_set();
+
+    if (status != HAL_OK)
+        led_set_interval(LED_ERROR_INTERVAL);
+
+    spi_q_tail = (spi_q_tail + 1) % SPI_DMA_QUEUE_SIZE;
+}
+
+/* Check if SPI TX is busy */
 bool display_spi_is_tx_busy(void)
 {
-    return spi_tx_busy;
+    return spi_dma_active;
+}
+
+/* -------------------------------------------------------------------------- */
+/* Internal DMA Scheduling                                                    */
+/* -------------------------------------------------------------------------- */
+
+static void start_next_spi_dma(void)
+{
+    if (spi_dma_active || spi_q_head == spi_q_tail)
+        return;
+
+    spi_dma_cmd_t *cmd = &spi_queue[spi_q_tail];
+
+    if (cmd->rs_data)
+      display_spi_rs_set();
+    else
+      display_spi_rs_reset();
+
+    display_spi_cs_reset();
+
+    spi_dma_active = true;
+
+    if (HAL_SPI_Transmit_DMA(&display_spi_handle, cmd->data, cmd->length) != HAL_OK)
+    {
+        spi_dma_active = false;
+        display_spi_cs_set();
+        led_set_interval(LED_ERROR_INTERVAL);
+    }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -93,13 +218,28 @@ bool display_spi_is_tx_busy(void)
 void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef *hspi)
 {
     if (hspi->Instance == SPI4)
-        spi_tx_busy = false;
+    {
+        spi_dma_cmd_t *cmd = &spi_queue[spi_q_tail];
+
+        if (cmd->release_cs)
+          display_spi_cs_set();
+
+        spi_q_tail = (spi_q_tail + 1) % SPI_DMA_QUEUE_SIZE;
+        spi_dma_active = false;
+
+        /* Start next queued command */
+        start_next_spi_dma();
+    }
 }
 
 void HAL_SPI_ErrorCallback(SPI_HandleTypeDef *hspi)
 {
-    if (hspi->Instance == SPI4)
-        spi_tx_busy = false;
+  if (hspi->Instance == SPI4)
+  {
+    spi_dma_active = false;
+    display_spi_cs_set();
+    led_set_interval(LED_ERROR_INTERVAL);
+  }
 }
 
 /* -------------------------------------------------------------------------- */
@@ -144,13 +284,13 @@ void HAL_SPI_MspInit(SPI_HandleTypeDef *hspi)
 
         if (HAL_DMA_Init(&hdma_spi4_tx) != HAL_OK)
         {
-            //Error_Handler();
+            // Error_Handler();
         }
 
         __HAL_LINKDMA(hspi, hdmatx, hdma_spi4_tx);
 
-        HAL_NVIC_SetPriority(SPI4_IRQn, 0, 0);
-		HAL_NVIC_EnableIRQ(SPI4_IRQn);
+        HAL_NVIC_SetPriority(SPI4_IRQn, 1, 0);
+        HAL_NVIC_EnableIRQ(SPI4_IRQn);
     }
 }
 

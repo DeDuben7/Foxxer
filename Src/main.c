@@ -28,23 +28,21 @@ int main(void)
   gpio_init();
   board_button_init();
   rotary_init();
-  lcd_init();
   sa818_init();
   led_init();
   testtone_init();
-
-  // rotary setup...
-  lcd_show_bootlogo();
   menu_init();
+  lcd_init();
+
+  lcd_show_bootlogo();
 
   while (1)
   {
-      rotary_task();
-      menu_task();
-      sa818_task();
-      led_task();
-      testtone_task();
-      lcd_task();
+    rotary_task();
+    menu_task();
+    sa818_task();
+    led_task();
+    testtone_task();
   }
 }
 
